@@ -17,10 +17,6 @@ if(!require("pacman")) install.packages("pacman")
 pacman::p_load(knitr, rmarkdown, plyr, tidyverse, afex, ez, BayesFactor, psych,
                apaTables, psychReport, superb, reshape2, readxl, cowplot, rlang,
                scales
-               #                , yaml, bookdown, cowplot, pals, viridis, renv, 
-               #                parallel, optimParallel, sjstats, 
-               #                rstatix, corrplot,
-               #                ggstance, trimr)
 )
 
 #Create plots and tables directory 
@@ -655,7 +651,7 @@ trimmed_rt_mean_TS <- trimmedTSData %>%
            posture,
            congruentTrialType, 
            switchTrialType) %>%
-  summarize(mean_rt    = mean(reactionTime))
+  summarize(mean_rt    = mean(reactionTime)*1000)
 
 #Convert data to wide format 
 trimmed_rt_mean_TS_wide <- trimmed_rt_mean_TS %>%
@@ -676,8 +672,8 @@ trimmed_RT_plot <-
   facet_wrap(vars(Congruent), labeller = labeller(Congruent = congruent.labs)) +
   scale_x_discrete(labels=c("1" = "No Switch", "2" = "Switch"))+
   scale_color_manual(values=c("#E69F00", "#0072B2"), labels = c("Sitting", "Standing")) +
-  ylim(0.50, 0.70) +
-  labs(y = "Reaction Time (seconds)")
+  ylim(500, 700) +
+  labs(y = "Response Time (ms)")
 
 ggsave(trimmed_RT_plot, 
        file = "plots/exp2_ts_trimmed_RT_plot.pdf", 
