@@ -1,0 +1,142 @@
+{\rtf1\ansi\deff0 {\fonttbl {\f0 Times New Roman;}}
+\paperw15840 \paperh12240 \margl1440 \margr1440 \margt1440 \margb1440 \landscape 
+{\pard Table XX \par}
+{\pard  \par}
+{\pard\i Means and standard deviations for meanRT as a function of a 3(congruency) X 2(posture) design\par}
+{\pard  \par}
+{
+\trowd \trgaph100
+\clbrdrt\brdrw15\brdrs
+\clvertalc\cellx5490 
+\pard\sa100\sb100\intbl\qc{posture:SITTING}\cell
+\row
+}
+{
+\trowd \trgaph100
+\clbrdrt\brdrw15\brdrs
+\clvertalc\cellx2051 
+\clbrdrt\brdrw15\brdrs
+\clvertalc\cellx2915 
+\clbrdrt\brdrw15\brdrs
+\clvertalc\cellx4626 
+\clbrdrt\brdrw15\brdrs
+\clvertalc\cellx5490 
+\pard\sa0\sb0\intbl\qr{congruency}\cell
+\pard\sa0\sb0\intbl\qc{{\i M}}\cell
+\pard\sa0\sb0\intbl\qc{{{\i M}\par}{95% CI\par}[LL, UL]}\cell
+\pard\sa0\sb0\intbl\qc{{\i SD}}\cell
+\row
+}
+{
+\trowd \trgaph100
+\clbrdrt\brdrw15\brdrs
+\clvertalc\cellx2051 
+\clbrdrt\brdrw15\brdrs
+\clvertalc\cellx2915 
+\clbrdrt\brdrw15\brdrs
+\clvertalc\cellx4626 
+\clbrdrt\brdrw15\brdrs
+\clvertalc\cellx5490 
+\pard\sa0\sb0\intbl\qr{congruent}\cell
+\pard\sa0\sb0\intbl\tqdec\tldot\tx302{450.77}\cell
+\pard\sa0\sb0\intbl\tqdec\tldot\tx598{[434.78, 466.76]}\cell
+\pard\sa0\sb0\intbl\tqdec\tldot\tx302{56.26}\cell
+\row
+}
+{
+\trowd \trgaph100
+\clvertalc\cellx2051 
+\clvertalc\cellx2915 
+\clvertalc\cellx4626 
+\clvertalc\cellx5490 
+\pard\sa0\sb0\intbl\qr{incongruent}\cell
+\pard\sa0\sb0\intbl\tqdec\tldot\tx302{488.31}\cell
+\pard\sa0\sb0\intbl\tqdec\tldot\tx598{[462.20, 514.42]}\cell
+\pard\sa0\sb0\intbl\tqdec\tldot\tx302{91.87}\cell
+\row
+}
+{
+\trowd \trgaph100
+\clbrdrb\brdrw15\brdrs
+\clvertalc\cellx2051 
+\clbrdrb\brdrw15\brdrs
+\clvertalc\cellx2915 
+\clbrdrb\brdrw15\brdrs
+\clvertalc\cellx4626 
+\clbrdrb\brdrw15\brdrs
+\clvertalc\cellx5490 
+\pard\sa0\sb0\intbl\qr{neutral}\cell
+\pard\sa0\sb0\intbl\tqdec\tldot\tx302{465.62}\cell
+\pard\sa0\sb0\intbl\tqdec\tldot\tx598{[446.78, 484.47]}\cell
+\pard\sa0\sb0\intbl\tqdec\tldot\tx302{66.31}\cell
+\row
+}
+{
+\trowd \trgaph100
+\clbrdrt\brdrw15\brdrs
+\clvertalc\cellx5490 
+\pard\sa100\sb100\intbl\qc{posture:STANDING}\cell
+\row
+}
+{
+\trowd \trgaph100
+\clbrdrt\brdrw15\brdrs
+\clvertalc\cellx2051 
+\clbrdrt\brdrw15\brdrs
+\clvertalc\cellx2915 
+\clbrdrt\brdrw15\brdrs
+\clvertalc\cellx4626 
+\clbrdrt\brdrw15\brdrs
+\clvertalc\cellx5490 
+\pard\sa0\sb0\intbl\qr{congruency}\cell
+\pard\sa0\sb0\intbl\qc{{\i M}}\cell
+\pard\sa0\sb0\intbl\qc{{{\i M}\par}{95% CI\par}[LL, UL]}\cell
+\pard\sa0\sb0\intbl\qc{{\i SD}}\cell
+\row
+}
+{
+\trowd \trgaph100
+\clbrdrt\brdrw15\brdrs
+\clvertalc\cellx2051 
+\clbrdrt\brdrw15\brdrs
+\clvertalc\cellx2915 
+\clbrdrt\brdrw15\brdrs
+\clvertalc\cellx4626 
+\clbrdrt\brdrw15\brdrs
+\clvertalc\cellx5490 
+\pard\sa0\sb0\intbl\qr{congruent}\cell
+\pard\sa0\sb0\intbl\tqdec\tldot\tx302{448.51}\cell
+\pard\sa0\sb0\intbl\tqdec\tldot\tx598{[431.30, 465.72]}\cell
+\pard\sa0\sb0\intbl\tqdec\tldot\tx302{60.56}\cell
+\row
+}
+{
+\trowd \trgaph100
+\clvertalc\cellx2051 
+\clvertalc\cellx2915 
+\clvertalc\cellx4626 
+\clvertalc\cellx5490 
+\pard\sa0\sb0\intbl\qr{incongruent}\cell
+\pard\sa0\sb0\intbl\tqdec\tldot\tx302{485.40}\cell
+\pard\sa0\sb0\intbl\tqdec\tldot\tx598{[456.81, 513.99]}\cell
+\pard\sa0\sb0\intbl\tqdec\tldot\tx302{100.61}\cell
+\row
+}
+{
+\trowd \trgaph100
+\clbrdrb\brdrw15\brdrs
+\clvertalc\cellx2051 
+\clbrdrb\brdrw15\brdrs
+\clvertalc\cellx2915 
+\clbrdrb\brdrw15\brdrs
+\clvertalc\cellx4626 
+\clbrdrb\brdrw15\brdrs
+\clvertalc\cellx5490 
+\pard\sa0\sb0\intbl\qr{neutral}\cell
+\pard\sa0\sb0\intbl\tqdec\tldot\tx302{460.86}\cell
+\pard\sa0\sb0\intbl\tqdec\tldot\tx598{[441.64, 480.08]}\cell
+\pard\sa0\sb0\intbl\tqdec\tldot\tx302{67.64}\cell
+\row
+}
+{\pard \par}{\pard{\i Note.} {\i M} and {\i SD} represent mean and standard deviation, respectively. {\i LL} and {\i UL} indicate the lower and upper limits of the 95% confidence interval for the mean, respectively. The confidence interval is a plausible range of population means that could have created a sample mean (Cumming, 2014).\par}
+}

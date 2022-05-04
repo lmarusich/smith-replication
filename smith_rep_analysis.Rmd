@@ -3,6 +3,8 @@ title: "Smith Replication Data Analysis"
 author: "Laura Marusich, Jon Bakdash, Emilie Caron"
 date: "`r Sys.Date()`"
 output: pdf_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -13,7 +15,8 @@ options(width = 100)
 
 if(!require("pacman")) install.packages("pacman")
 pacman::p_load(knitr, rmarkdown, plyr, tidyverse, afex, ez, BayesFactor, psych,
-               apaTables, psychReport, superb, reshape2, readxl, cowplot, rlang
+               apaTables, psychReport, superb, reshape2, readxl, cowplot, rlang,
+               scales
                #                , yaml, bookdown, cowplot, pals, viridis, renv, 
                #                parallel, optimParallel, sjstats, 
                #                rstatix, corrplot,
@@ -38,16 +41,16 @@ source(paste0(workingdir, "/fcts/mod.forestplot.R"))
 
 #get trimming function
 source(paste0(workingdir, "/fcts/pjTrimmingV2.R"))
-
-
 ```
 
+```{r}
+sessionInfo()
+```
 # Experiment 1 - Stroop
 
 ## Import and clean data
 
 ```{r}
-
 stroop_files = list.files(path = "Experiment 1 Data/", full.names = T) 
 stroop_files = stroop_files[str_detect(stroop_files,pattern="(?=.*SJ)(?=.*.txt)")]
                  
@@ -140,7 +143,10 @@ print(paste("percent errors removed = ",
 observationDataStroop$percentLoss = 
   ((observationDataStroop$Freq-observationDataStroop$correctTrials)/
      observationDataStroop$Freq)*100
-observationDataStroop$sj[observationDataStroop$percentLoss>20]
+
+observationDataStroop$percentLoss
+
+sum(observationDataStroop$percentLoss>20)
 #...None!
 
 #...RUN TRIMMING PROCEDURE
@@ -164,7 +170,7 @@ head(trimOutputStroop)
 
 
 
-stroopRT = ddply(trimmedStroopData, 
+stroopRT = plyr::ddply(trimmedStroopData, 
                  .(sj, cb,congruency,posture), 
                  summarise, 
                  meanRT = mean(rt))
@@ -172,7 +178,7 @@ stroopRT = ddply(trimmedStroopData,
 head(stroopRT)
 
 #...get error data
-stroopPE = ddply(mergedStroopData, 
+stroopPE = plyr::ddply(mergedStroopData, 
                      .(sj, cb,congruency,posture), 
                      summarise, 
                      meanPE = 100 - (mean(ac)*100))
@@ -224,17 +230,17 @@ paste(rtModelStroop$ANOVA$Effect,":  F(",
 stroopBF = stroopCombined
 stroopBF$posture = factor(stroopBF$posture)
 stroopBF$congruency = factor(stroopBF$congruency)
-bfValues = anovaBF(meanRT~congruency*posture+sj,
+bfValues1 = anovaBF(meanRT~congruency*posture+sj,
                    data = stroopBF,
                    whichRandom = "sj", 
                    method="laplace")
-bfValues
+bfValues1
 
 #...get the Bayes factor for the Null Interaction
-bfValues[3]/bfValues[4]
-1/(bfValues[3]/bfValues[4])
+bfValues1[3]/bfValues1[4]
+1/(bfValues1[3]/bfValues1[4])
 
-
+# Difference scores and paired t-tests
 #... stroop effect (incongruent - congruent) FOR Standing
 standingStroop = stroopCombined[stroopCombined$posture=="STANDING", ]
 standingStroop = standingStroop[standingStroop$congruency!="neutral", ]
@@ -290,8 +296,6 @@ t.test(standingStroop$meanPE[standingStroop$congruency=="congruent"],
 t.test(sittingStroop$meanPE[sittingStroop$congruency=="congruent"],
        sittingStroop$meanPE[sittingStroop$congruency=="incongruent"], 
        paired=TRUE )
-
-
 
 ```
 
@@ -366,7 +370,7 @@ interactionPlot <- ggplot(graphRT, aes(congruency, mean, group=posture)) +
   facet_grid(~posture)
   
 ggsave(interactionPlot, 
-       file = "plots/stroop_interaction_plot.pdf", 
+       file = "plots/exp1_stroop_interaction_plot.pdf", 
        units = "in",
        width = 8.5, 
        height = 5,
@@ -374,13 +378,15 @@ ggsave(interactionPlot,
 
 interactionPlot
 
+exp1.table <-
 apa.2way.table(congruency,
                posture,
                meanRT,
                stroopCombined,
                show.conf.interval = TRUE,
-               landscape=TRUE)
-
+               landscape=TRUE,
+               filename = "Output/exp1_table.doc")
+exp1.table
 ```
 
 # Experiment 2 - Task-switching
@@ -545,11 +551,11 @@ acc.stats.TS <- ezStats(ts_acc_mean,
                       within = .(posture, congruentTrialType, switchTrialType), 
                       type = 3
 )
-write.csv(acc.stats.TS[ ,-7], file = "output/Task_Switching_Descriptives_ACC.csv", 
+write.csv(acc.stats.TS[ ,-7], file = "output/exp2_Descriptives_ACC.csv", 
           row.names = F)
 
 
-write.csv(accModelTS$anova_table, "output/Task_switching_ANOVA_acc.csv")
+write.csv(accModelTS$anova_table, "output/exp2_ANOVA_acc.csv")
 accModelTS
 
 #Calculate confidence interval: PES for posture x switch/condition interaction
@@ -583,13 +589,33 @@ acc_plot <-
 
 
 ggsave(acc_plot, 
-       file = "plots/acc_plot.pdf", 
+       file = "plots/exp2_ts_acc_plot.pdf", 
        units = "in",
        width = 6.62, 
        height = 5.50,
        dpi = 600)
 
 acc_plot
+
+#...CALCULATE THE BAYES FACTORS FOR THE ACC ANALYSIS
+taskswitchBF = data.frame(ts_acc_mean)
+
+taskswitchBF$participant = factor(ts_acc_mean$participant)
+taskswitchBF$posture = factor(ts_acc_mean$posture)
+taskswitchBF$congruentTrialType = factor(taskswitchBF$congruentTrialType)
+taskswitchBF$switchTrialType  = factor(taskswitchBF$switchTrialType)
+#str(taskswitchBF)
+
+
+bfValues2 = anovaBF(Accuracy~ posture*switchTrialType+participant,
+                   data = taskswitchBF,
+                   whichRandom = "participant", 
+                   method="laplace")
+bfValues2
+
+#...get the Bayes factor for the Null Interaction (vs. model w/no interaction) 
+bfValues2[3]/bfValues2[4]
+1/(bfValues2[3]/bfValues2[4])
 
 ```
 
@@ -654,7 +680,7 @@ trimmed_RT_plot <-
   labs(y = "Reaction Time (seconds)")
 
 ggsave(trimmed_RT_plot, 
-       file = "plots/TS_trimmed_RT_plot.pdf", 
+       file = "plots/exp2_ts_trimmed_RT_plot.pdf", 
        units = "in",
        width = 6.62, 
        height = 5.50,
@@ -678,10 +704,10 @@ rt.stats.TS <- ezStats(trimmed_rt_mean_TS,
                                  type = 3
 )
 write.csv(rt.stats.TS[ ,-7], 
-          file = "output/Task_Switching_Descriptives_trimmed_RT.csv", 
+          file = "output/exp2_Descriptives_trimmed_RT.csv", 
           row.names = F)
 
-write.csv(rtModelTS$anova_table, file = "output/Task_switching_ANOVA_trimmed_RT.csv")
+write.csv(rtModelTS$anova_table, file = "output/exp2_ANOVA_trimmed_RT.csv")
 rtModelTS
 
 ```
@@ -772,7 +798,7 @@ head(trimInfo)
 #...CHECK 20% CRITERION
 #################################
 observationDataVS$percentLoss = ((observationDataVS$Freq-observationDataVS$correctTrials)/observationDataVS$Freq)*100
-observationDataVS$sj[observationDataVS$percentLoss>20]
+sum(observationDataVS$percentLoss>20)
 #...None!
 
 #...RUN TRIMMING PROCEDURE
@@ -797,13 +823,13 @@ head(output.out)
 
 
 #...get mean error data 
-vsPE = ddply(merged.VS.data, 
+vsPE = plyr::ddply(merged.VS.data, 
                  .(sj,cb,setSize, posture), 
                  summarise, 
                  meanPE = 100 - (mean(ac)*100))
 head(vsPE)
 
-vsRT = ddply(trimmedData, 
+vsRT = plyr::ddply(trimmedData, 
                  .(sj, cb, setSize,posture), 
                  summarise, 
                  meanRT = mean(rt))
@@ -851,15 +877,15 @@ paste(rtModelVS$ANOVA$Effect,":  F(",
       round(rtModelVS$ANOVA$SSn/(rtModelVS$ANOVA$SSn+rtModelVS$ANOVA$SSd),4),sep="")
 
 #...CALCULATE THE BAYES FACTORS FOR THE RT ANALYSIS
-bfValues = anovaBF(meanRT~setSize*postureFactor+sj,
+bfValues3 = anovaBF(meanRT~setSize*postureFactor+sj,
                    data = vsCombined,
                    whichRandom = "sj", 
                    method="laplace")
-bfValues
+bfValues3
 warnings()
 #...get the Bayes factor for the Null Interaction
-bfValues[3]/bfValues[4]
-1/(bfValues[3]/bfValues[4])
+bfValues3[3]/bfValues3[4]
+1/(bfValues3[3]/bfValues3[4])
 
 ###############################################
 # GET DIFFERENCE SCORES - SEARCH RATE
@@ -881,10 +907,11 @@ searchratesit = mean(wideData$sittingEffect)  #...search rate in the sitting con
 searchratestand
 searchratesit
 
+#One-sample t-tests 
 t.test(wideData$standingEffect)
 t.test(wideData$sittingEffect)
 
-#...SIGN TEST
+#...Exact Binomial SIGN TEST
 binom.test(length(wideData$interaction[wideData$interaction>=0]),
            length(unique(vsCombined$sj)))
 ```
@@ -932,6 +959,7 @@ searchratesit = mean(wideData$sittingEffect)  #...search rate in the sitting con
 searchratestand
 searchratesit
 
+#One-sample t-tests 
 t.test(wideData$standingEffect)
 t.test(wideData$sittingEffect)
 ```
@@ -1006,7 +1034,7 @@ interactionPlot <- ggplot(graphRT, aes(setSize, mean, group=posture)) +
   facet_grid(~posture)
 
 ggsave(interactionPlot, 
-       file = "plots/visual_search_interaction_plot.pdf", 
+       file = "plots/exp3_visual_search_interaction_plot.pdf", 
        units = "in",
        width = 8.5, 
        height = 5,
@@ -1018,12 +1046,15 @@ interactionPlot
 
 # Reproduce results from Smith et al.
 ```{r}
+# Data source: The data from all the experiments are available at: 
+# http://rabrams.net under the Resources tab.
+
 ### Experiment 1 (Stroop)
 
 #load acc data
 Smith_Exp1_acc <- read_excel("smith_data.xlsx", 
                              sheet = "Exp1Acc", 
-                             n_max = 14)
+                             n_max = 14) #Sample size in Smith 
 #load rt data
 Smith_Exp1_rt <- read_excel("smith_data.xlsx", 
                             sheet = "Exp1RT", 
@@ -1143,7 +1174,7 @@ Smith_exp3_anova_rt <- aov_ez(data = Smith_Exp3,
 kable(nice(Smith_exp3_anova_rt), caption = "ANOVA results for Smith Exp 3 - RT")
 ```
 
-# Overall summary plots
+# Overall summary plots: Smith and replication
 ```{r}
 smith_anovas <- lst(Smith_exp1_anova_acc$anova_table,
                     Smith_exp1_anova_rt$anova_table,
@@ -1262,7 +1293,7 @@ ts.plot <- ggplot(data = ts.effects, aes(x = pesSmith, y = pesReplication, shape
                                          fill = "lightgray"),
         legend.title = element_blank(),
         legend.margin=margin(-3,5,0,0)) +
-  labs(y = "Replication", x = "Smith", title = "Task-Switching")
+  labs(y = "Replication", x = "Smith et al.", title = "Task-Switching")
 
 ###Exp3 (Visual Search)
 smith.vs <- smith_anovas[[5]] %>%
@@ -1282,7 +1313,8 @@ repl.vs <- repl_anovas[[5]] %>%
 
 
 vs.effects <- merge(smith.vs, repl.vs, 
-                        by = c("Effect","dv"), suffixes = c("Smith","Replication"))
+                        by = c("Effect","dv"), suffixes = c("Smith",
+                                                            "Replication"))
   
 
 vs.plot <- ggplot(data = vs.effects, aes(x = pesSmith, y = pesReplication, shape = dv)) +
@@ -1320,6 +1352,8 @@ all.plot <- plot_grid(
   rel_heights = c(0.1, 1)
 )
 
+all.plot
+
 ggsave(all.plot, 
        file = "plots/all_effects_plot.pdf", 
        units = "in",
@@ -1355,7 +1389,16 @@ forest.comp <- mod.forestplot(df = forest.data,
                               colour = Experiment,
                               xlab = "Partial Eta-Squared"
 ) + 
-  scale_color_manual(values = forest.colors) 
+  scale_color_manual(values = forest.colors) + 
+  scale_x_continuous(labels = label_number(accuracy = 0.01), breaks = seq(0.00, 0.60, 0.10)) +
+  #Too busy w/numbers for effects? 
+  geom_label(data = subset(forest.data, Experiment == "Smith"),
+                           aes(label = round(pes, digits = 2))) +
+  geom_label(data = subset(forest.data, Experiment == "Replication"),
+                           aes(label = round(pes, digits = 3)),
+                          vjust = 2.50)  +
+  coord_cartesian(clip="off") #Disable clipping to draw outside plot area 
+  
 
 forest.comp
 
@@ -1366,5 +1409,16 @@ ggsave(forest.comp,
        height = 6,
        dpi = 600)
 
+#Compare proportions: replication divided by original effect sizes
+replication.effects <- subset(forest.data, Experiment == "Replication")
+original.effects    <- subset(forest.data, Experiment == "Smith")
+
+#As a percentage
+prop.effects <- (replication.effects$pes/original.effects$pes)*100
+#< 1%, ~9%, and < lo1%
+prop.effects
+
+#Average proportion is 3.28%
+mean(prop.effects)
 ```
 
