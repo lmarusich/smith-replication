@@ -1,0 +1,1370 @@
+---
+title: "Smith Replication Data Analysis"
+author: "Laura Marusich, Jon Bakdash, Emilie Caron"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+options(width = 100)
+
+
+if(!require("pacman")) install.packages("pacman")
+pacman::p_load(knitr, rmarkdown, plyr, tidyverse, afex, ez, BayesFactor, psych,
+               apaTables, psychReport, superb, reshape2, readxl, cowplot, rlang
+               #                , yaml, bookdown, cowplot, pals, viridis, renv, 
+               #                parallel, optimParallel, sjstats, 
+               #                rstatix, corrplot,
+               #                ggstance, trimr)
+)
+
+#Create plots and tables directory 
+dir.create(file.path(getwd(),"/plots"),  showWarnings = F)
+dir.create(file.path(getwd(),"/output"),  showWarnings = F)
+
+#Get the working directory
+workingdir <- getwd()
+
+#Kludge so ggforestplot doesn't need to be installed, b/c it requires devtools 
+source(paste0(workingdir, "/fcts/theme_forest.R"))
+source(paste0(workingdir, "/fcts/ng_colours.R"))
+source(paste0(workingdir, "/fcts/geom_effect.R"))
+
+#Modified version of forestplot from ggforestplot
+#This modded version is from: https://osf.io/bxpjc/
+source(paste0(workingdir, "/fcts/mod.forestplot.R"))
+
+#get trimming function
+source(paste0(workingdir, "/fcts/pjTrimmingV2.R"))
+
+
+```
+
+# Experiment 1 - Stroop
+
+## Import and clean data
+
+```{r}
+
+stroop_files = list.files(path = "Experiment 1 Data/", full.names = T) 
+stroop_files = stroop_files[str_detect(stroop_files,pattern="(?=.*SJ)(?=.*.txt)")]
+                 
+mergedStroopData <- ldply(stroop_files, 
+                         read.delim, 
+                         header=FALSE, 
+                         stringsAsFactors = FALSE,
+                         sep = "")  #for each item in the list apply the function read.delim
+
+names(mergedStroopData) = c("sj",
+                         "cb",
+                         "blockNumber",
+                         "blockType",
+                         "trialNum",
+                         "congruency",
+                         "posture",
+                         "wordStim",
+                         "inkColour",
+                         "rt",
+                         "cResp",
+                         "resp",
+                         "ac")
+#...remove problem subjects
+#.. No subjects pre-identified as needing to be removed (see ethics protocol)
+
+#...check number of observations per condition
+ftable(posture+congruency~sj, mergedStroopData)
+ftable(blockType~sj, mergedStroopData)
+
+#...need to fix SJ - same one was used with two counterbalances
+mergedStroopData$sj = paste(mergedStroopData$sj,"_",mergedStroopData$cb,sep="")
+
+#...check for missing data
+mergedStroopData[!complete.cases(mergedStroopData),]
+
+#...THERE IS MISSING DATA, BUT IT IS EXPECTED:
+#...There are trials where the the experiment times out
+#...can be identified as RT == 0
+#...trials where a response was not made have an RT =0, resp=0 and ac = NA
+
+#...get the number of time outs
+dim(mergedStroopData[!complete.cases(mergedStroopData),])[1]
+
+#...how are the missing trials distributed???
+timeOutStroopData = mergedStroopData[!complete.cases(mergedStroopData),]
+
+ftable(posture~congruency, timeOutStroopData)
+ftable(blockType~sj, timeOutStroopData)
+
+#...this code changes the "time-out" trials as errors
+#...see Davoli et al.
+mergedStroopData$ac[mergedStroopData$rt==0] = 0
+
+#...remove practice trials
+mergedStroopData <- mergedStroopData[!mergedStroopData$blockType=="practice",]
+
+#...check that only experimental trials are left
+unique(mergedStroopData$blockType)
+
+totalStroopTrials = dim(mergedStroopData)[1]
+observationDataStroop = data.frame(ftable(blockType~sj, mergedStroopData))[,c(1,3)]
+
+#...remove trials faster than 100ms
+# mergedStroopData= mergedStroopData[!mergedStroopData$rt==0,]  #...greater that 1500ms
+mergedStroopData= mergedStroopData[!(mergedStroopData$rt<=100 & mergedStroopData$rt > 0),]  
+validStroopRTTrials = dim(mergedStroopData)[1]
+observationDataStroop$validTrials = data.frame(ftable(blockType~sj, mergedStroopData))[,c(3)]
+
+print(paste("percent invalid trials = ", 
+            ((totalStroopTrials-validStroopRTTrials)/totalStroopTrials)*100))
+
+write.table(mergedStroopData, file = "Experiment 1 Data/merged_stroop_data.txt", 
+            row.names = F)
+
+stroopCorrect = mergedStroopData[mergedStroopData$ac == 1, ]
+
+# mergedDataSet = mergedDataSet[mergedDataSet$ac ==1,]
+errorsRemoved = dim(stroopCorrect)[1] #...total remaining trials
+observationDataStroop$correctTrials = data.frame(ftable(blockType~sj, stroopCorrect))[,c(3)]
+trimInfo = data.frame(totalStroopTrials, validStroopRTTrials,errorsRemoved)
+head(trimInfo)
+
+#...percent of error trials lost
+print(paste("percent errors removed = ",
+            (((validStroopRTTrials-errorsRemoved)/totalStroopTrials)*100)))
+
+#################################
+#...CHECK 20% CRITERION
+#################################
+observationDataStroop$percentLoss = 
+  ((observationDataStroop$Freq-observationDataStroop$correctTrials)/
+     observationDataStroop$Freq)*100
+observationDataStroop$sj[observationDataStroop$percentLoss>20]
+#...None!
+
+#...RUN TRIMMING PROCEDURE
+tempList = pjRecursiveTrim2(stroopCorrect, #...dataset
+                            "rt", #...dependent variables
+                            c("sj", 
+                              "cb",
+                              "congruency",
+                              "posture")) #.independent variables
+
+trimmedStroopData=tempList[[1]]
+totalStroopN = tempList[[2]]
+rejectedStroop = tempList[[3]]
+percentTrimmedStroop = tempList[[4]]
+NcellsStroop = tempList[[5]]
+
+
+#...get the trimming info
+trimOutputStroop= data.frame(totalStroopN, rejectedStroop,percentTrimmedStroop,NcellsStroop)
+head(trimOutputStroop)
+
+
+
+stroopRT = ddply(trimmedStroopData, 
+                 .(sj, cb,congruency,posture), 
+                 summarise, 
+                 meanRT = mean(rt))
+
+head(stroopRT)
+
+#...get error data
+stroopPE = ddply(mergedStroopData, 
+                     .(sj, cb,congruency,posture), 
+                     summarise, 
+                     meanPE = 100 - (mean(ac)*100))
+
+head(stroopPE)
+
+#...combine the RT and error data
+stroopCombined = cbind(stroopRT,meanPE =stroopPE$meanPE)
+
+head(stroopCombined)
+
+#...set as factors
+stroopCombined$sj = factor(stroopCombined$sj)
+stroopCombined$cb = factor(stroopCombined$cb)
+
+
+```
+
+## Reaction time results
+```{r}
+rtModelStroop <- ezANOVA(stroopCombined, 
+                   dv = .(meanRT),
+                   wid=.(sj),
+                   within=.(posture,congruency), 
+                   detailed=TRUE, 
+                   type=3,
+                   return_aov=TRUE)
+
+rtModelStroop$ANOVA
+
+rtStroopMSE = rtModelStroop$ANOVA$SSd/rtModelStroop$ANOVA$DFd
+
+#...print ANOVA in nice format
+paste(rtModelStroop$ANOVA$Effect,":  F(",
+      rtModelStroop$ANOVA$DFn,
+      ", ",
+      rtModelStroop$ANOVA$DFd,
+      ") = ",
+      round(rtModelStroop$ANOVA$F,3),
+      ", MSE = ",
+      round(rtStroopMSE,3),
+      ", p = ",
+      round(rtModelStroop$ANOVA$p,3),
+      ", partialEtaSq = ",
+      round(rtModelStroop$ANOVA$SSn/(rtModelStroop$ANOVA$SSn+rtModelStroop$ANOVA$SSd),4),
+      sep="")
+
+#...CALCULATE THE BAYES FACTORS FOR THE RT ANALYSIS
+stroopBF = stroopCombined
+stroopBF$posture = factor(stroopBF$posture)
+stroopBF$congruency = factor(stroopBF$congruency)
+bfValues = anovaBF(meanRT~congruency*posture+sj,
+                   data = stroopBF,
+                   whichRandom = "sj", 
+                   method="laplace")
+bfValues
+
+#...get the Bayes factor for the Null Interaction
+bfValues[3]/bfValues[4]
+1/(bfValues[3]/bfValues[4])
+
+
+#... stroop effect (incongruent - congruent) FOR Standing
+standingStroop = stroopCombined[stroopCombined$posture=="STANDING", ]
+standingStroop = standingStroop[standingStroop$congruency!="neutral", ]
+t.test(standingStroop$meanRT[standingStroop$congruency=="congruent"],
+       standingStroop$meanRT[standingStroop$congruency=="incongruent"], 
+       paired=TRUE )
+
+#... stroop effect (incongruent - congruent) FOR SITTING
+sittingStroop = stroopCombined[stroopCombined$posture=="SITTING", ]
+sittingStroop = sittingStroop[sittingStroop$congruency!="neutral", ]
+t.test(sittingStroop$meanRT[sittingStroop$congruency=="congruent"],
+       sittingStroop$meanRT[sittingStroop$congruency=="incongruent"], 
+       paired=TRUE )
+
+
+```
+
+## Percent error results
+
+```{r}
+
+errModelStroop <- ezANOVA(stroopCombined, 
+                   dv = .(meanPE),
+                   wid=.(sj),
+                   within=.(posture,congruency), 
+                   detailed=TRUE, 
+                   type=3,
+                   return_aov = TRUE)
+
+errStroopMSE = errModelStroop$ANOVA$SSd/errModelStroop$ANOVA$DFd
+
+paste(errModelStroop$ANOVA$Effect,":  F(",
+      errModelStroop$ANOVA$DFn,
+      ", ",
+      errModelStroop$ANOVA$DFd,
+      ") = ",
+      round(errModelStroop$ANOVA$F,3),
+      ", MSE = ",
+      round(errStroopMSE,3),
+      ", p = ",
+      round(errModelStroop$ANOVA$p,3),
+      ", partialEtaSq = ",
+      round(errModelStroop$ANOVA$SSn/(errModelStroop$ANOVA$SSn+errModelStroop$ANOVA$SSd),4),
+      sep="")
+
+#...ERRORs
+#... stroop effect (incongruent - congruent) FOR Standing
+t.test(standingStroop$meanPE[standingStroop$congruency=="congruent"],
+       standingStroop$meanPE[standingStroop$congruency=="incongruent"], 
+       paired=TRUE )
+
+#... stroop effect (incongruent - congruent) FOR SITTING
+t.test(sittingStroop$meanPE[sittingStroop$congruency=="congruent"],
+       sittingStroop$meanPE[sittingStroop$congruency=="incongruent"], 
+       paired=TRUE )
+
+
+
+```
+
+## Make plots for Stroop
+```{r}
+#...pull out summary statistics per condition averaged across subjects for graph
+graphRT = describeBy(stroopCombined$meanRT, 
+                     list(stroopCombined$posture,stroopCombined$congruency), 
+                     mat=TRUE, 
+                     digits = 1)
+
+graphPE = describeBy(stroopCombined$meanPE, 
+                     list(stroopCombined$posture,stroopCombined$congruency), 
+                     mat=TRUE, 
+                     digits = 1)
+head(graphRT)
+#...get rid of irrelevant columns
+graphRT = graphRT[,c("group1","group2","mean","se")]
+graphPE = graphPE[,c("group1","group2","mean","se")]
+
+#...rename the variables 
+names(graphRT) = c("posture","congruency","mean","se")
+names(graphPE) = c("posture","congruency","mean","se")
+
+#...make sure posture is in UPPERCASE
+graphRT$posture = str_to_upper(graphRT$posture)
+
+#..calculate the within subjects confidence intervals based on loftus and masson
+#..the confidence intervals are based on the interaction term.
+
+inxn.rt.MSE = rtStroopMSE[4]
+inxn.err.MSE = errStroopMSE[4]
+
+graphRT$se = sqrt((inxn.rt.MSE)/length(unique(stroopCombined$sj)))  
+graphPE$se= sqrt((inxn.err.MSE)/length(unique(stroopCombined$sj))) 
+
+critT = qt(p=.025,df=length(unique(stroopCombined$sj))-2,lower.tail =FALSE)
+
+#---add the min and max for the confidence intervals
+graphRT$min = graphRT$mean - (graphRT$se*critT)
+graphRT$max = graphRT$mean + (graphRT$se*critT)
+
+####GET AC DATA FROM twoAnimalWordsPRPac.R
+graphRT$ac = paste("(",format(round(graphPE$mean,digits=1),nsmall = 1),")",sep="")
+head(graphRT)
+
+#...used for positioning the accuracy data on the graph
+graphRT$vAdj = 25 #down
+graphRT$vAdj[graphRT$congruency=="incongruent"]=25 #up
+graphRT$hAdj = 0 #right
+#graphRT$hAdj[graphRT$posture=="SITTING"]=-60 #left
+graphRT$congruency = factor(graphRT$congruency,labels = c("Congruent","Incongruent","Neutral"))
+graphRT$congruency = factor(graphRT$congruency,levels=c("Congruent","Neutral","Incongruent"))
+
+interactionPlot <- ggplot(graphRT, aes(congruency, mean, group=posture)) +
+  theme(legend.position = "none")+
+  scale_fill_manual(values=c("#FFFFFF","#999999","#FFFFFF","#999999")) +
+  coord_cartesian(ylim=c(350,550),expand=TRUE) +
+  scale_y_continuous(breaks = round(seq(350, 550, by = 50),0)) +
+  geom_text(aes(label=ac),nudge_x=graphRT$hAdj,nudge_y =graphRT$vAdj, size=5) +
+  geom_bar(stat="identity", aes(fill=interaction(congruency)),colour="black")+
+  geom_errorbar(aes(ymin=min,ymax=max,group=interaction(posture,congruency)), width=.1)+
+  labs(x = "Congruency", y = "Response Time (ms)") +
+  theme(axis.ticks = element_line(size = 1, colour = "black", linetype = "solid"),
+        axis.ticks.length = unit(.25,"cm"),
+        axis.line = element_line(size = 1, colour = "black", linetype = "solid"),
+        panel.background = element_rect(fill = "white", colour = "black", size = 1),
+        axis.text=element_text(size=16),
+        axis.title=element_text(size=22,face="bold"),
+        strip.text = element_text(size = 20, face = "bold",colour = "black", angle = 0),
+        strip.background = element_rect(fill=NA,colour="NA",size = 2))+
+  facet_grid(~posture)
+  
+ggsave(interactionPlot, 
+       file = "plots/stroop_interaction_plot.pdf", 
+       units = "in",
+       width = 8.5, 
+       height = 5,
+       dpi = 600)  
+
+interactionPlot
+
+apa.2way.table(congruency,
+               posture,
+               meanRT,
+               stroopCombined,
+               show.conf.interval = TRUE,
+               landscape=TRUE)
+
+```
+
+# Experiment 2 - Task-switching
+
+## Import and clean data
+```{r}
+
+###read in data
+
+ts_path <- "/Experiment 2 Data/task-switching-replication-recoded-2.csv"
+task_switching_raw <- read.csv(paste0(workingdir, ts_path))
+head(task_switching_raw)
+
+### check data
+
+#does every person have 392 trials?
+ntrials_sub <- task_switching_raw %>% 
+  group_by(participant) %>%
+  summarize(ntrials = n()) %>%
+  pull(ntrials)
+
+all(ntrials_sub == 392)
+
+#does every block start with a buffer and have 49 trials?
+task_switching_raw <- task_switching_raw %>%
+  mutate(condblock = paste0(posture, blockNum))
+
+blocktrials <- task_switching_raw %>%
+  group_by(participant, condblock) %>%
+  summarize(ntrials = n(), firsttrial = first(switchTrialType)) 
+
+all(blocktrials$ntrials == 49)
+all(blocktrials$firsttrial == "buffer")
+
+### clean data
+
+#Drop buffer trials
+task_switching_raw2 <- task_switching_raw %>% 
+  filter(switchTrialType != "buffer")
+
+#Recode Correct to 1 and Incorrect to 0
+task_switching_raw2$correct_bin <- recode(task_switching_raw2$correct, 
+                                          "no"  = 0,
+                                          "yes" = 1)
+
+#Calc overall acc by participant
+ts_overall_acc <- task_switching_raw2 %>%
+  group_by(participant)  %>%
+  summarize(Accuracy = mean(correct_bin))
+
+#find participants with less than 80% accuracy
+#2, 8, 15, 44, 49, 51
+#First exclusion criteria
+low_acc_subs <- ts_overall_acc %>% filter(Accuracy < 0.80) %>%
+  pull(participant)
+
+task_switching_raw3 <- task_switching_raw2 %>% 
+  filter(!(participant %in% low_acc_subs))
+
+#Calc mean Acc by participant and conditions (posture, con, switch)  
+#Narrow format 
+ts_acc_mean <- task_switching_raw3 %>%
+  group_by(participant, 
+           posture,
+           congruentTrialType, 
+           switchTrialType) %>%
+  summarize(Accuracy    = mean(correct_bin))
+
+#Convert data to wide format (for statview/SPSS/etc) 
+ts_acc_mean_wide <- ts_acc_mean %>%
+  pivot_wider(names_from = c(posture, 
+                             congruentTrialType,
+                             switchTrialType), 
+              values_from =   Accuracy)
+
+# ts_acc_mean <- data.frame(ts_acc_mean)
+ts_acc_mean <- ts_acc_mean %>%
+  ungroup() %>%
+  mutate(across(posture:switchTrialType, as.factor))
+
+str(ts_acc_mean)
+
+#Total N = 51 (6 dropped for total acc < 80%)
+length(unique(ts_acc_mean$participant))
+
+```
+## Summarize Demographics
+```{r}
+demo_raw <- read.csv(paste0(workingdir, 
+                            "/Experiment 2 Data/Task Switching_February 24, 2022_13.05.csv"),
+                     skip = 1) %>%
+  slice(-1) %>%
+  select(-c(Response.Type,IP.Address, Recipient.Last.Name:Distribution.Channel))
+colnames(demo_raw)[10:15] <- c("Gender.Pick", "Gender.Text","Age","Race.Pick","Race.Text","Eng.First")
+
+dim(demo_raw)
+#59 records
+#first two are test data
+# need to match up the 6 dropped participants from behavioral data
+demo_df <- demo_raw %>% 
+  filter(!(X %in% c("test", low_acc_subs)))
+dim(demo_df)
+
+demo_df <- demo_df %>%
+  mutate(Gender.New = ifelse(Gender.Pick %in% c("Man","Woman"), Gender.Pick, Gender.Text),
+         Eng.First = toupper(Eng.First))
+
+#gender breakdown
+gender_table <- demo_df %>%
+  group_by(Gender.New) %>%
+  summarize(n = n())
+gender_table
+
+#age breakdown
+hist(as.numeric(demo_df$Age),
+     main = "Histogram of Participant Ages",
+     xlab = "Participant Age")
+age_table <- demo_df %>%
+  group_by(Age) %>%
+  summarize(n = n())
+age_table
+
+#age mean and sd
+mean_age <- mean(as.numeric(demo_df$Age))
+sd_age <- sd(as.numeric(demo_df$Age))
+
+kable(matrix(c(mean_age, sd_age), nrow = 1), col.names = c("Mean of Age", "SD of Age"))
+
+#race breakdown
+race_table <- demo_df %>%
+  group_by(Race.Pick) %>%
+  summarize(n = n()) %>%
+  arrange(desc(n))
+race_table
+
+#language breakdown
+lang_table <- demo_df %>%
+  group_by(Eng.First) %>%
+  summarize(n=n())
+lang_table
+
+```
+
+## Accuracy results
+
+```{r}
+
+#Accuracy for all cells
+hist(ts_acc_mean$Accuracy)
+
+accModelTS <- aov_ez(data = ts_acc_mean, 
+                      dv = "Accuracy", 
+                      id = "participant", 
+                      within = c("posture", "congruentTrialType", "switchTrialType"), 
+                      type = 3, 
+                      anova_table = list(es = "pes")
+)
+
+acc.stats.TS <- ezStats(ts_acc_mean, 
+                      dv = Accuracy, 
+                      wid = participant, 
+                      within = .(posture, congruentTrialType, switchTrialType), 
+                      type = 3
+)
+write.csv(acc.stats.TS[ ,-7], file = "output/Task_Switching_Descriptives_ACC.csv", 
+          row.names = F)
+
+
+write.csv(accModelTS$anova_table, "output/Task_switching_ANOVA_acc.csv")
+accModelTS
+
+#Calculate confidence interval: PES for posture x switch/condition interaction
+#using ANOVA results            (partial eta-squared)
+interaction_effect_CI <-  get.ci.partial.eta.squared(accModelTS$anova_table$F[5], 
+                                                     accModelTS$anova_table$`num Df`[5],
+                                                     accModelTS$anova_table$`den Df`[5],
+                                                     conf.level = 0.90) 
+                                                    #90% CI is the  convention for PES
+interaction_effect_CI
+
+congruent.labs <- c("Congruent", "Incongruent")
+names(congruent.labs) <- c("1", "2")
+
+#make plot like Smith et al's
+acc_plot <-
+  superbPlot(ts_acc_mean_wide,
+             WSFactors = c("Condition(2)", "Congruent(2)", "Posture(2)"),
+             variables = colnames(ts_acc_mean_wide)[2:9],
+             errorbar = "SE", #Tempted to change to CI, should stay SE to be consistent with SMith
+             plotStyle = "line",
+             factorOrder = c("Condition","Posture","Congruent"),
+             adjustments = list(purpose = "difference"))+
+  theme_classic() +
+  ylim(0.77, 1) + #Trying to make ylim same as the Smith w/o cutting off error bars
+  facet_wrap(vars(Congruent), labeller = labeller(Congruent = congruent.labs)) +
+  scale_x_discrete(labels=c("1" = "No Switch", "2" = "Switch"))+
+  scale_color_manual(values=c("#E69F00", "#0072B2"), 
+                     labels = c("Sitting", "Standing")) +
+  labs(y = "Accuracy")
+
+
+ggsave(acc_plot, 
+       file = "plots/acc_plot.pdf", 
+       units = "in",
+       width = 6.62, 
+       height = 5.50,
+       dpi = 600)
+
+acc_plot
+
+```
+
+## Reaction time results
+```{r}
+
+#look at reaction time for correct trials
+ts_correct_only <- task_switching_raw3 %>%
+  filter(correct_bin == 1)
+
+#Second exclusion criteria
+#How many trials faster than 100 ms? Only a single one
+sum(ts_correct_only$reactionTime < 0.100)
+dim(ts_correct_only)
+
+ts_correct_only2 <- ts_correct_only %>% filter(reactionTime >= 0.100) 
+#Sanity check, one trial is dropped. Now have 17,698 trials
+dim(ts_correct_only2)
+
+trimOutputTS = pjRecursiveTrim2(dataSet = ts_correct_only2,
+                                  dv = "reactionTime",
+                                  splitvars = c("participant",
+                                                "posture",
+                                                "switchTrialType",
+                                                "congruentTrialType"))
+trimmedTSData=trimOutputTS[[1]]
+totalN.TS = trimOutputTS[[2]]
+rejectedTS = trimOutputTS[[3]]
+percentTrimmedTS = trimOutputTS[[4]] #this is very close to the percentage trimmed for stroop
+#2.14% of trials
+percentTrimmedTS
+
+NcellsTS = trimOutputTS[[5]] # 51 participants * 8 conditions
+
+trimmed_rt_mean_TS <- trimmedTSData %>%
+  group_by(participant, 
+           posture,
+           congruentTrialType, 
+           switchTrialType) %>%
+  summarize(mean_rt    = mean(reactionTime))
+
+#Convert data to wide format 
+trimmed_rt_mean_TS_wide <- trimmed_rt_mean_TS %>%
+  pivot_wider(names_from = c(posture, 
+                             congruentTrialType,
+                             switchTrialType), 
+              values_from =   mean_rt)
+
+trimmed_RT_plot <- 
+  superbPlot(trimmed_rt_mean_TS_wide,
+             WSFactors = c("Condition(2)", "Congruent(2)", "Posture(2)"),
+             variables = colnames(trimmed_rt_mean_TS_wide)[2:9],
+             errorbar = "SE",
+             plotStyle = "line",
+             factorOrder = c("Condition","Posture","Congruent"),
+             adjustments = list(purpose = "difference"))+
+  theme_classic()+
+  facet_wrap(vars(Congruent), labeller = labeller(Congruent = congruent.labs)) +
+  scale_x_discrete(labels=c("1" = "No Switch", "2" = "Switch"))+
+  scale_color_manual(values=c("#E69F00", "#0072B2"), labels = c("Sitting", "Standing")) +
+  ylim(0.50, 0.70) +
+  labs(y = "Reaction Time (seconds)")
+
+ggsave(trimmed_RT_plot, 
+       file = "plots/TS_trimmed_RT_plot.pdf", 
+       units = "in",
+       width = 6.62, 
+       height = 5.50,
+       dpi = 600)
+
+trimmed_RT_plot
+
+rtModelTS <- aov_ez(data = trimmed_rt_mean_TS, 
+                    dv = 'mean_rt', 
+                    id = 'participant', 
+                    within = c('posture', 
+                               'congruentTrialType',
+                               'switchTrialType'), 
+                    type = 3,
+                    anova_table = list(es = "pes"))
+
+rt.stats.TS <- ezStats(trimmed_rt_mean_TS, 
+                                 dv = mean_rt, 
+                                 wid = participant, 
+                                 within = .(posture, congruentTrialType, switchTrialType), 
+                                 type = 3
+)
+write.csv(rt.stats.TS[ ,-7], 
+          file = "output/Task_Switching_Descriptives_trimmed_RT.csv", 
+          row.names = F)
+
+write.csv(rtModelTS$anova_table, file = "output/Task_switching_ANOVA_trimmed_RT.csv")
+rtModelTS
+
+```
+
+# Experiment 3 - Visual search
+
+## Import and clean data
+
+```{r}
+
+vs_files = list.files(path = "Experiment 3 Data/", full.names = T) 
+vs_files = vs_files[str_detect(vs_files,pattern="(?=.*SJ)(?=.*.txt)")]
+
+merged.VS.data <- ldply(vs_files, 
+                         read.delim, 
+                         header=FALSE, 
+                         stringsAsFactors = FALSE,
+                         sep = "")  #for each item in the list apply the function read.delim
+
+#..ADD HEADERS
+names(merged.VS.data) = c("sj",
+                         "cb",
+                         "blockNumber",
+                         "blockType",
+                         "trialNum",
+                         "target",
+                         "targetImage",
+                         "distractor",
+                         "distractorImage",
+                         "posture",
+                         "setSize",
+                         "rt",
+                         "resp",
+                         "cresp",
+                         "ac")
+
+#...look at unique values from both columns
+unique(merged.VS.data[c('sj')])
+unique(merged.VS.data[c('blockType')])
+
+#..DOES EACH SUBJECT HAVE THE SAME NUMBER OF TRIALS
+ftable(blockType~sj, merged.VS.data)
+
+#...DO WE HAVE EQUAL OBSERVATIONS FOR EACH COUNTERBALANCE
+ftable(blockType~cb, merged.VS.data)
+
+#...LOOK FOR MISSING DATA
+merged.VS.data[!complete.cases(merged.VS.data),]
+
+#... GET RID OF PRACTICE TRIALS
+merged.VS.data <- merged.VS.data[!merged.VS.data$blockType=="practice",]
+
+#.... CHECK TRIALS PER CONDITION
+ftable(posture+target+distractor+setSize~sj, merged.VS.data)
+
+#... UNLIKE THE STROOP, PARTICIPANTS WERE ALLOWED TO TAKE LONGER THAN 1500MS BUT WERE GIVEN A WARNING
+#... TRIALS LONGER THAN 1500 MS will be considered errors (i.e., they will be dropped in RT but kept in PE ANALYSES)
+#... Set values in the ac column to 0 on trials where a response is > = 1500
+
+#...check that only experimental trials are left
+unique(merged.VS.data$blockType)
+
+write.table(merged.VS.data, file = "Experiment 3 Data/merged_vs_data.txt", row.names = F)
+
+#...count trials
+totalTrialsVS = dim(merged.VS.data)[1]
+observationDataVS = data.frame(ftable(blockType~sj, merged.VS.data))[,c(1,3)]
+
+#...get the number of extreme trials <100 - anticipatory or fast responses 
+merged.VS.data= merged.VS.data[!merged.VS.data$rt<=100,]
+validRTTrialsVS = dim(merged.VS.data)[1]
+observationDataVS$validTrials = data.frame(ftable(blockType~sj, merged.VS.data))[,c(3)]
+
+print(paste("percent invalid trials = ", ((totalTrialsVS-validRTTrialsVS)/totalTrialsVS)*100))
+
+#...this code changes the 1550ms+ trials into errors
+merged.VS.data$ac[merged.VS.data$rt>=1500] = 0
+
+vsCorrect = merged.VS.data[merged.VS.data$ac ==1,]
+
+errorsRemovedVS = dim(vsCorrect)[1]
+observationDataVS$correctTrials = data.frame(ftable(blockType~sj, vsCorrect))[,c(3)]
+
+trimInfo = data.frame(totalTrialsVS, validRTTrialsVS, errorsRemovedVS)
+head(trimInfo)
+
+#################################
+#...CHECK 20% CRITERION
+#################################
+observationDataVS$percentLoss = ((observationDataVS$Freq-observationDataVS$correctTrials)/observationDataVS$Freq)*100
+observationDataVS$sj[observationDataVS$percentLoss>20]
+#...None!
+
+#...RUN TRIMMING PROCEDURE
+tempList = pjRecursiveTrim2(vsCorrect, #...dataset
+                            "rt", #...dependent variables
+                            c("sj", 
+                              "cb",
+                              "setSize",
+                              "posture")) #.independent variables
+
+trimmedData=tempList[[1]]
+totalN = tempList[[2]]
+rejected = tempList[[3]]
+percentTrimmed = tempList[[4]]
+Ncells = tempList[[5]]
+
+print(paste("Percent of outliers removed: ",round(percentTrimmed,3)))
+
+#...get the trimming info
+output.out= data.frame(totalN, rejected,percentTrimmed,Ncells)
+head(output.out)
+
+
+#...get mean error data 
+vsPE = ddply(merged.VS.data, 
+                 .(sj,cb,setSize, posture), 
+                 summarise, 
+                 meanPE = 100 - (mean(ac)*100))
+head(vsPE)
+
+vsRT = ddply(trimmedData, 
+                 .(sj, cb, setSize,posture), 
+                 summarise, 
+                 meanRT = mean(rt))
+
+#...combine the RT and error data
+vsCombined = cbind(vsRT,meanPE =vsPE$meanPE)
+str(vsCombined)
+
+#...set as factors
+vsCombined$sj = factor(vsCombined$sj)
+vsCombined$cb = factor(vsCombined$cb)
+vsCombined$setSize = factor(vsCombined$setSize)
+vsCombined$postureFactor = factor(vsCombined$posture)
+summary(vsCombined$cb)
+
+```
+
+## Reaction time results
+```{r}
+
+rtModelVS <- ezANOVA(vsCombined, 
+                   dv = .(meanRT),
+                   wid=.(sj),
+                   within=.(postureFactor,setSize), 
+                   detailed=TRUE, 
+                   type=3,
+                   return_aov=TRUE)
+
+rtModelVS$ANOVA
+
+rt.VS.MSE <- rtModelVS$ANOVA$SSd/rtModelVS$ANOVA$DFd
+
+#...print ANOVA in nice format
+paste(rtModelVS$ANOVA$Effect,":  F(",
+      rtModelVS$ANOVA$DFn,
+      ", ",
+      rtModelVS$ANOVA$DFd,
+      ") = ",
+      round(rtModelVS$ANOVA$F,3),
+      ", MSE = ",
+      round(rt.VS.MSE,3),
+      ", p = ",
+      round(rtModelVS$ANOVA$p,3),
+      ", partialEtaSq = ",
+      round(rtModelVS$ANOVA$SSn/(rtModelVS$ANOVA$SSn+rtModelVS$ANOVA$SSd),4),sep="")
+
+#...CALCULATE THE BAYES FACTORS FOR THE RT ANALYSIS
+bfValues = anovaBF(meanRT~setSize*postureFactor+sj,
+                   data = vsCombined,
+                   whichRandom = "sj", 
+                   method="laplace")
+bfValues
+warnings()
+#...get the Bayes factor for the Null Interaction
+bfValues[3]/bfValues[4]
+1/(bfValues[3]/bfValues[4])
+
+###############################################
+# GET DIFFERENCE SCORES - SEARCH RATE
+##############################################
+
+wideData = dcast(vsCombined, #the name of the dataframe you want to reshape
+                 sj+cb #row variables 
+                 ~posture+setSize, #row variables ~ column variables
+                 value.var = "meanRT") 
+head(wideData)
+
+wideData$sittingEffect = (wideData$SITTING_8-wideData$SITTING_4)/4
+wideData$standingEffect = (wideData$STANDING_8-wideData$STANDING_4)/4
+wideData$interaction = wideData$sittingEffect - wideData$standingEffect
+
+searchratestand = mean(wideData$standingEffect)  #...search rate in standing condition
+searchratesit = mean(wideData$sittingEffect)  #...search rate in the sitting condition
+
+searchratestand
+searchratesit
+
+t.test(wideData$standingEffect)
+t.test(wideData$sittingEffect)
+
+#...SIGN TEST
+binom.test(length(wideData$interaction[wideData$interaction>=0]),
+           length(unique(vsCombined$sj)))
+```
+
+## Percent error results
+```{r}
+errModelVS <- ezANOVA(vsCombined, 
+                   dv = .(meanPE),
+                   wid=.(sj),
+                   within=.(postureFactor,setSize), 
+                   detailed=TRUE, 
+                   type=3,
+                   return_aov = TRUE)
+
+errModelVS
+
+err.VS.MSE <- errModelVS$ANOVA$SSd/errModelVS$ANOVA$DFd
+
+paste(errModelVS$ANOVA$Effect,":  F(",
+      errModelVS$ANOVA$DFn,
+      ", ",
+      errModelVS$ANOVA$DFd,
+      ") = ",
+      round(errModelVS$ANOVA$F,3),
+      ", MSE = ",
+      round(err.VS.MSE,3),
+      ", p = ",
+      round(errModelVS$ANOVA$p,3),
+      ", partialEtaSq = ",
+      round(errModelVS$ANOVA$SSn/(errModelVS$ANOVA$SSn+errModelVS$ANOVA$SSd),4),sep="")
+
+wideData = dcast(vsCombined, #the name of the dataframe you want to reshape
+                 sj+cb #row variables 
+                 ~posture+setSize, #row variables ~ column variables
+                 value.var = "meanPE") 
+head(wideData)
+
+wideData$sittingEffect = (wideData$SITTING_8-wideData$SITTING_4)/4
+wideData$standingEffect = (wideData$STANDING_8-wideData$STANDING_4)/4
+wideData$interaction = wideData$sittingEffect - wideData$standingEffect
+
+searchratestand = mean(wideData$standingEffect)  #...search rate in standing condition
+searchratesit = mean(wideData$sittingEffect)  #...search rate in the sitting condition
+
+searchratestand
+searchratesit
+
+t.test(wideData$standingEffect)
+t.test(wideData$sittingEffect)
+```
+
+## Make plots for visual search
+```{r}
+
+graphRT = describeBy(vsCombined$meanRT, 
+                     list(vsCombined$posture,vsCombined$setSize), 
+                     mat=TRUE, 
+                     digits = 1)
+graphPE = describeBy(vsCombined$meanPE, 
+                     list(vsCombined$posture,vsCombined$setSize), 
+                     mat=TRUE, 
+                     digits = 1)
+
+graphRT = graphRT[,c("group1","group2","mean","se")]
+graphPE = graphPE[,c("group1","group2","mean","se")]
+
+names(graphRT) = c("posture","setSize","mean","se")
+names(graphPE) = c("posture","setSize","mean","se")
+
+graphRT$posture = str_to_upper(graphRT$posture)
+
+###################################################
+#..calculate the within subjects confidence intervals based on loftus and masson
+#..the confidence intervals are based on the interaction term.
+###################################################
+
+graphRT$se = sqrt((rt.VS.MSE[4])/length(unique(vsCombined$sj)))  
+graphPE$se= sqrt((err.VS.MSE[4])/length(unique(vsCombined$sj))) 
+
+###################################################
+#..calculate the within subjects confidence intervals based on loftus and masson
+#..the confidence intervals are based on the interaction term.
+###################################################
+
+
+critT = qt(p=.025,df=length(unique(vsCombined$sj))-2,lower.tail =FALSE)
+
+#---add the min and max for the confidence intervals
+graphRT$min = graphRT$mean - (graphRT$se*critT)
+graphRT$max = graphRT$mean + (graphRT$se*critT)
+
+####GET AC DATA FROM twoAnimalWordsPRPac.R
+graphRT$ac = paste("(",format(round(graphPE$mean,digits=1),nsmall = 1),")",sep="")
+head(graphRT)
+graphRT$vAdj = 35 #down
+graphRT$vAdj[graphRT$setSize=="incongruent"]=35 #up
+graphRT$hAdj = 0 #right
+#graphRT$hAdj[graphRT$posture=="SITTING"]=-60 #left
+
+graphRT$congruency = factor(graphRT$setSize,labels = c("4","8"))
+
+interactionPlot <- ggplot(graphRT, aes(setSize, mean, group=posture)) + 
+  theme(legend.position = "none")+
+  scale_fill_manual(values=c("#FFFFFF","#999999","#FFFFFF","#999999"))+
+  coord_cartesian(ylim=c(500,950),expand=TRUE)+
+  scale_y_continuous(breaks = round(seq(500, 950, by = 100),0))+
+  geom_text(aes(label=ac),nudge_x=graphRT$hAdj,nudge_y =graphRT$vAdj,size=5)+
+  geom_bar(stat="identity", aes(fill=interaction(setSize)),colour="black")+
+  geom_errorbar(aes(ymin=min,ymax=max,group=interaction(posture,setSize)), width=.1)+
+  labs(x = "Set Size", y = "Response Time (ms)") +
+  theme(axis.ticks = element_line(size = 1, colour = "black", linetype = "solid"),
+        axis.ticks.length = unit(.25,"cm"),
+        axis.line = element_line(size = 1, colour = "black", linetype = "solid"),
+        panel.background = element_rect(fill = "white", colour = "black", size = 1),
+        axis.text=element_text(size=16),
+        axis.title=element_text(size=22,face="bold"),
+        strip.text = element_text(size = 20, face = "bold",colour = "black", angle = 0),
+        strip.background = element_rect(fill=NA,colour="NA",size = 2))+
+  facet_grid(~posture)
+
+ggsave(interactionPlot, 
+       file = "plots/visual_search_interaction_plot.pdf", 
+       units = "in",
+       width = 8.5, 
+       height = 5,
+       dpi = 600)  
+
+interactionPlot
+
+```
+
+# Reproduce results from Smith et al.
+```{r}
+### Experiment 1 (Stroop)
+
+#load acc data
+Smith_Exp1_acc <- read_excel("smith_data.xlsx", 
+                             sheet = "Exp1Acc", 
+                             n_max = 14)
+#load rt data
+Smith_Exp1_rt <- read_excel("smith_data.xlsx", 
+                            sheet = "Exp1RT", 
+                            n_max = 14)
+
+#Restructure from wide to narrow, using tidyr
+Smith_Exp1_acc_narrow <- Smith_Exp1_acc %>%
+  pivot_longer(cols = sit_neut:sta_con, names_to = "condition", values_to = "acc") %>%
+  separate(col = condition, into = c("posture", "con"))
+
+Smith_Exp1_rt_narrow <- Smith_Exp1_rt %>%
+  pivot_longer(cols = sit_neut:sta_con, names_to = "condition", values_to = "rt") %>%
+  separate(col = condition, into = c("posture", "con"))
+
+Smith_Exp1 <- merge(Smith_Exp1_acc_narrow, Smith_Exp1_rt_narrow)
+
+
+Smith_exp1_anova_acc <- aov_ez(data = Smith_Exp1, 
+                               dv = 'acc', 
+                               id = 'subj', 
+                               within = c('posture', 'con'),
+                               anova_table = list(es = "pes", correction = "none"),
+                               type = 3)
+kable(nice(Smith_exp1_anova_acc), caption = "ANOVA results for Smith Exp 1 - accuracy")
+
+Smith_exp1_anova_rt <- aov_ez(data = Smith_Exp1, 
+                              dv = 'rt', 
+                              id = 'subj', 
+                              within = c('posture', 'con'),
+                              anova_table = list(es = "pes", correction = "none"),
+                              type = 3)
+kable(nice(Smith_exp1_anova_rt), caption = "ANOVA results for Smith Exp 1 - RT")
+
+
+### Experiment 2 (Task-switching)
+
+#load acc data
+Smith_Exp2_acc <- read_excel("smith_data.xlsx", 
+                             sheet = "Exp2Acc", 
+                             n_max = 30)
+#load rt data
+Smith_Exp2_rt <- read_excel("smith_data.xlsx", 
+                            sheet = "Exp2RT", 
+                            n_max = 30)
+
+#Restructure from wide to narrow, using tidyr
+Smith_Exp2_acc_narrow <- Smith_Exp2_acc %>%
+  pivot_longer(cols = sit_congruent_noswitch:stand_incongruent_switch,
+               names_to = "condition", values_to = "acc") %>%
+  separate(col = condition, into = c("posture", "con", "switch"))
+
+Smith_Exp2_rt_narrow <- Smith_Exp2_rt %>%
+  pivot_longer(cols = sit_congruent_noswitch:stand_incongruent_switch,
+               names_to = "condition", values_to = "rt") %>%
+  separate(col = condition, into = c("posture", "con", "switch"))
+
+Smith_Exp2 <- merge(Smith_Exp2_acc_narrow, Smith_Exp2_rt_narrow)
+
+
+Smith_exp2_anova_acc <- aov_ez(data = Smith_Exp2, 
+                               dv = 'acc', 
+                               id = 'subj', 
+                               within = c('posture', 'con', 'switch'),
+                               anova_table = list(es = "pes", correction = "none"),
+                               type = 3)
+kable(nice(Smith_exp2_anova_acc), caption = "ANOVA results for Smith Exp 2 - accuracy")
+
+Smith_exp2_anova_rt <- aov_ez(data = Smith_Exp2, 
+                              dv = 'rt', 
+                              id = 'subj', 
+                              within = c('posture', 'con', 'switch'),
+                              anova_table = list(es = "pes", correction = "none"),
+                              type = 3)
+kable(nice(Smith_exp2_anova_rt), caption = "ANOVA results for Smith Exp 2 - RT")
+
+
+### Experiment 3 (Visual Search)
+
+#load acc data
+Smith_Exp3_acc <- read_excel("smith_data.xlsx", 
+                             sheet = "Exp3Acc", 
+                             n_max = 12) %>%
+  select(subj:sit8)
+
+#load rt data
+Smith_Exp3_rt <- read_excel("smith_data.xlsx", 
+                            sheet = "Exp3RT", 
+                            n_max = 12)%>%
+  select(subj:sit8)
+
+#Restructure from wide to narrow, using tidyr
+Smith_Exp3_acc_narrow <- Smith_Exp3_acc %>%
+  pivot_longer(cols = stand4:sit8, names_to = "condition", values_to = "acc") %>%
+  separate(col = condition, into = c("posture", "set.size"), sep = -1)
+
+Smith_Exp3_rt_narrow <- Smith_Exp3_rt %>%
+  pivot_longer(cols = stand4:sit8, names_to = "condition", values_to = "rt") %>%
+  separate(col = condition, into = c("posture", "set.size"), sep = -1)
+
+Smith_Exp3 <- merge(Smith_Exp3_acc_narrow, Smith_Exp3_rt_narrow)
+
+
+Smith_exp3_anova_acc <- aov_ez(data = Smith_Exp3, 
+                               dv = 'acc', 
+                               id = 'subj', 
+                               within = c('posture', 'set.size'),
+                               anova_table = list(es = "pes", correction = "none"),
+                               type = 3)
+kable(nice(Smith_exp3_anova_acc), caption = "ANOVA results for Smith Exp 3 - accuracy")
+
+Smith_exp3_anova_rt <- aov_ez(data = Smith_Exp3, 
+                              dv = 'rt', 
+                              id = 'subj', 
+                              within = c('posture', 'set.size'),
+                              anova_table = list(es = "pes", correction = "none"),
+                              type = 3)
+kable(nice(Smith_exp3_anova_rt), caption = "ANOVA results for Smith Exp 3 - RT")
+```
+
+# Overall summary plots
+```{r}
+smith_anovas <- lst(Smith_exp1_anova_acc$anova_table,
+                    Smith_exp1_anova_rt$anova_table,
+                    Smith_exp2_anova_acc$anova_table,
+                    Smith_exp2_anova_rt$anova_table,
+                    Smith_exp3_anova_acc$anova_table,
+                    Smith_exp3_anova_rt$anova_table)
+
+repl_anovas <- lst(aov_ez(data = stroopCombined, 
+                          dv = "meanPE", 
+                          id = "sj", 
+                          within = c("posture", "congruency"), 
+                          type = 3, 
+                          anova_table = list(es = "pes")),
+                   aov_ez(data = stroopCombined, 
+                          dv = "meanRT", 
+                          id = "sj", 
+                          within = c("posture", "congruency"), 
+                          type = 3, 
+                          anova_table = list(es = "pes")),
+                   accModelTS,
+                   rtModelTS,
+                   aov_ez(data = vsCombined, 
+                          dv = "meanPE", 
+                          id = "sj", 
+                          within = c("postureFactor", "setSize"), 
+                          type = 3, 
+                          anova_table = list(es = "pes")),
+                   aov_ez(data = vsCombined, 
+                          dv = "meanRT", 
+                          id = "sj", 
+                          within = c("postureFactor", "setSize"), 
+                          type = 3, 
+                          anova_table = list(es = "pes")))
+
+for (i in 1:6){
+  
+  smith_anovas[[i]] <- smith_anovas[[i]] %>%
+    rownames_to_column() %>%
+    as.data.frame() %>%
+    rowwise() %>%
+    mutate(LL = get.ci.partial.eta.squared(F, `num Df`, `den Df`, conf.level = 0.9)$LL,
+           UL = get.ci.partial.eta.squared(F, `num Df`, `den Df`, conf.level = 0.9)$UL)
+  
+  repl_anovas[[i]] <- repl_anovas[[i]]$anova_table %>%
+    rownames_to_column() %>%
+    as.data.frame() %>%
+    rowwise() %>%
+    mutate(LL = get.ci.partial.eta.squared(F, `num Df`, `den Df`, conf.level = 0.9)$LL,
+           UL = get.ci.partial.eta.squared(F, `num Df`, `den Df`, conf.level = 0.9)$UL)
+}
+
+###Exp1 (Stroop)
+smith.stroop <- smith_anovas[[1]] %>%
+  ungroup() %>%
+  bind_rows(smith_anovas[[2]]) %>%
+  select(Effect = rowname, pes, LL, UL) %>%
+  mutate(dv = rep(c("acc","rt"), each = 3), col = rep(c("black","black","red"),2))
+
+repl.stroop <- repl_anovas[[1]] %>%
+  ungroup() %>%
+  bind_rows(repl_anovas[[2]]) %>%
+  select(Effect = rowname, pes, LL, UL) %>%
+  mutate(dv = rep(c("acc","rt"), each = 3), col = rep(c("black","black","red"),2),
+         Effect = smith.stroop$Effect)
+
+
+stroop.effects <- merge(smith.stroop, repl.stroop, 
+                        by = c("Effect","dv"), suffixes = c("Smith","Replication"))
+  
+
+stroop.plot <- ggplot(data = stroop.effects, aes(x = pesSmith, y = pesReplication, shape = dv)) +
+  geom_point(size = 2.5, col = stroop.effects$colSmith) +
+  xlim(0, 1.00) +
+  ylim(0, 1.00) +
+  geom_abline(slope = 1, intercept = 0, col = "blue") + 
+  theme_classic() +
+  theme(legend.position = c(0.2, 0.85), 
+        legend.background = element_rect(colour = "black",
+                                         linetype = "solid", 
+                                         fill = "lightgray"),
+        legend.title = element_blank(),
+        legend.margin=margin(-3,5,0,0)) +
+  labs(y = "Replication", x = "Smith", title = "Stroop")
+
+###Exp2 (Task-switching)
+smith.ts <- smith_anovas[[3]] %>%
+  ungroup() %>%
+  bind_rows(smith_anovas[[4]]) %>%
+  select(Effect = rowname, pes, LL, UL) %>%
+  mutate(dv = rep(c("acc","rt"), each = 7), 
+         col = rep(c("black","black","black","black","red","black","black"),2))
+
+repl.ts <- repl_anovas[[3]] %>%
+  ungroup() %>%
+  bind_rows(repl_anovas[[4]]) %>%
+  select(Effect = rowname, pes, LL, UL) %>%
+  mutate(dv = rep(c("acc","rt"), each = 7), 
+         col = rep(c("black","black","black","black","red","black","black"),2),
+         Effect = smith.ts$Effect)
+
+
+ts.effects <- merge(smith.ts, repl.ts, 
+                        by = c("Effect","dv"), suffixes = c("Smith","Replication"))
+  
+
+ts.plot <- ggplot(data = ts.effects, aes(x = pesSmith, y = pesReplication, shape = dv)) +
+  geom_point(size = 2.5, col = ts.effects$colSmith) +
+  xlim(0, 1.00) +
+  ylim(0, 1.00) +
+  geom_abline(slope = 1, intercept = 0, col = "blue") + 
+  theme_classic() +
+  theme(legend.position = c(0.2, 0.85), 
+        legend.background = element_rect(colour = "black",
+                                         linetype = "solid", 
+                                         fill = "lightgray"),
+        legend.title = element_blank(),
+        legend.margin=margin(-3,5,0,0)) +
+  labs(y = "Replication", x = "Smith", title = "Task-Switching")
+
+###Exp3 (Visual Search)
+smith.vs <- smith_anovas[[5]] %>%
+  ungroup() %>%
+  bind_rows(smith_anovas[[6]]) %>%
+  select(Effect = rowname, pes, LL, UL) %>%
+  mutate(dv = rep(c("acc","rt"), each = 3), 
+         col = rep(c("black","black","red"),2))
+
+repl.vs <- repl_anovas[[5]] %>%
+  ungroup() %>%
+  bind_rows(repl_anovas[[6]]) %>%
+  select(Effect = rowname, pes, LL, UL) %>%
+  mutate(dv = rep(c("acc","rt"), each = 3), 
+         col = rep(c("black","black","red"),2),
+         Effect = smith.vs$Effect)
+
+
+vs.effects <- merge(smith.vs, repl.vs, 
+                        by = c("Effect","dv"), suffixes = c("Smith","Replication"))
+  
+
+vs.plot <- ggplot(data = vs.effects, aes(x = pesSmith, y = pesReplication, shape = dv)) +
+  geom_point(size = 2.5, col = vs.effects$colSmith) +
+  xlim(0, 1) +
+  ylim(0, 1) +
+  geom_abline(slope = 1, intercept = 0, col = "blue") + 
+  theme_classic() +
+  theme(legend.position = c(0.2, 0.85), 
+        legend.background = element_rect(colour = "black",
+                                         linetype = "solid", 
+                                         fill = "lightgray"),
+        legend.title = element_blank(),
+        legend.margin=margin(-3,5,0,0)) +
+  labs(y = "Replication", x = "Smith", title = "Visual Search")
+
+all.plot <- plot_grid(stroop.plot, ts.plot, vs.plot, ncol = 3)
+
+title <- ggdraw() + 
+  draw_label(
+    "Effect Size Comparisons",
+    fontface = 'bold',
+    x = 0,
+    hjust = 0
+  ) +
+  theme(
+    # add margin on the left of the drawing canvas,
+    # so title is aligned with left edge of first plot
+    plot.margin = margin(0, 0, 0, 7)
+  )
+all.plot <- plot_grid(
+  title, all.plot,
+  ncol = 1,
+  # rel_heights values control vertical title margins
+  rel_heights = c(0.1, 1)
+)
+
+ggsave(all.plot, 
+       file = "plots/all_effects_plot.pdf", 
+       units = "in",
+       width = 9.5, 
+       height = 4.50,
+       dpi = 600)
+
+
+### Forest plot
+#Graph comparison of key effects for all three experiments
+forest.colors <- c("black", "red")
+
+forest.data <- data.frame(Experiment = rep(c("Smith", "Replication"), 3),
+                          name = rep(c("Stroop", "Task-switching", "Visual Search"), each = 2),
+                          dv = rep(c("rt","acc","rt"), each = 2),
+                          pes = numeric(6),
+                          LL = numeric(6),
+                          UL = numeric(6))
+forest.data[1,4:6] <- smith_anovas[[2]][3,c(6,8,9)]
+forest.data[2,4:6] <- repl_anovas[[2]][3,c(6,8,9)]
+
+forest.data[3,4:6] <- smith_anovas[[3]][5,c(6,8,9)]
+forest.data[4,4:6] <- repl_anovas[[3]][5,c(6,8,9)]
+
+forest.data[5,4:6] <- smith_anovas[[6]][3,c(6,8,9)]
+forest.data[6,4:6] <- repl_anovas[[6]][3,c(6,8,9)]
+
+
+forest.comp <- mod.forestplot(df = forest.data,
+                              estimate = pes,
+                              ci.lower = LL,
+                              ci.upper = UL,
+                              colour = Experiment,
+                              xlab = "Partial Eta-Squared"
+) + 
+  scale_color_manual(values = forest.colors) 
+
+forest.comp
+
+ggsave(forest.comp, 
+       file = "plots/forest_plot.pdf", 
+       units = "in",
+       width = 6, 
+       height = 6,
+       dpi = 600)
+
+```
+
