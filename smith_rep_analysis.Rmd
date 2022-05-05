@@ -16,7 +16,7 @@ options(width = 100)
 if(!require("pacman")) install.packages("pacman")
 pacman::p_load(knitr, rmarkdown, plyr, tidyverse, afex, ez, BayesFactor, psych,
                apaTables, psychReport, superb, reshape2, readxl, cowplot, rlang,
-               scales
+               scales, rmarkdown, ggstance, renv
 )
 
 #Create plots and tables directory 
@@ -39,8 +39,21 @@ source(paste0(workingdir, "/fcts/mod.forestplot.R"))
 source(paste0(workingdir, "/fcts/pjTrimmingV2.R"))
 ```
 
+# Save References, R Evnironment, and Session Information
 ```{r}
+# References for R packages
+#install.packages(devtools)
+#require(devtools)
+#devtools::install_github("crsh/papaja")
+#require(papaja)
+
+#papaja::r_refs(file = "output/r-package-refs.bib") #<-- writes bib file w/refs
+
+#Save package versions
+#renv::snapshot()
+
 sessionInfo()
+
 ```
 # Experiment 1 - Stroop
 
@@ -357,14 +370,17 @@ interactionPlot <- ggplot(graphRT, aes(congruency, mean, group=posture)) +
   labs(x = "Congruency", y = "Response Time (ms)") +
   theme(axis.ticks = element_line(size = 1, colour = "black", linetype = "solid"),
         axis.ticks.length = unit(.25,"cm"),
-        axis.line = element_line(size = 1, colour = "black", linetype = "solid"),
-        panel.background = element_rect(fill = "white", colour = "black", size = 1),
+       #axis.line = element_line(size = 1, colour = "black", linetype = "solid"),
+        panel.background = element_rect(fill = "white", colour = "white", size = 1),
         axis.text=element_text(size=16),
         axis.title=element_text(size=22,face="bold"),
         strip.text = element_text(size = 20, face = "bold",colour = "black", angle = 0),
+        panel.border = element_rect(colour = "black", fill = NA, size = 0.50),
         strip.background = element_rect(fill=NA,colour="NA",size = 2))+
   facet_grid(~posture)
-  
+
+interactionPlot
+
 ggsave(interactionPlot, 
        file = "plots/exp1_stroop_interaction_plot.pdf", 
        units = "in",
@@ -372,7 +388,7 @@ ggsave(interactionPlot,
        height = 5,
        dpi = 600)  
 
-interactionPlot
+
 
 exp1.table <-
 apa.2way.table(congruency,
@@ -963,30 +979,30 @@ t.test(wideData$sittingEffect)
 ## Make plots for visual search
 ```{r}
 
-graphRT = describeBy(vsCombined$meanRT, 
+graphRT3 = describeBy(vsCombined$meanRT, 
                      list(vsCombined$posture,vsCombined$setSize), 
                      mat=TRUE, 
                      digits = 1)
-graphPE = describeBy(vsCombined$meanPE, 
+graphPE3 = describeBy(vsCombined$meanPE, 
                      list(vsCombined$posture,vsCombined$setSize), 
                      mat=TRUE, 
                      digits = 1)
 
-graphRT = graphRT[,c("group1","group2","mean","se")]
-graphPE = graphPE[,c("group1","group2","mean","se")]
+graphRT3 = graphRT3[,c("group1","group2","mean","se")]
+graphPE3 = graphPE3[,c("group1","group2","mean","se")]
 
-names(graphRT) = c("posture","setSize","mean","se")
-names(graphPE) = c("posture","setSize","mean","se")
+names(graphRT3) = c("posture","setSize","mean","se")
+names(graphPE3) = c("posture","setSize","mean","se")
 
-graphRT$posture = str_to_upper(graphRT$posture)
+graphRT3$posture = str_to_upper(graphRT3$posture)
 
 ###################################################
 #..calculate the within subjects confidence intervals based on loftus and masson
 #..the confidence intervals are based on the interaction term.
 ###################################################
 
-graphRT$se = sqrt((rt.VS.MSE[4])/length(unique(vsCombined$sj)))  
-graphPE$se= sqrt((err.VS.MSE[4])/length(unique(vsCombined$sj))) 
+graphRT3$se = sqrt((rt.VS.MSE[4])/length(unique(vsCombined$sj)))  
+graphPE3$se= sqrt((err.VS.MSE[4])/length(unique(vsCombined$sj))) 
 
 ###################################################
 #..calculate the within subjects confidence intervals based on loftus and masson
@@ -994,49 +1010,50 @@ graphPE$se= sqrt((err.VS.MSE[4])/length(unique(vsCombined$sj)))
 ###################################################
 
 
-critT = qt(p=.025,df=length(unique(vsCombined$sj))-2,lower.tail =FALSE)
+critT3 = qt(p=.025,df=length(unique(vsCombined$sj))-2,lower.tail =FALSE)
 
 #---add the min and max for the confidence intervals
-graphRT$min = graphRT$mean - (graphRT$se*critT)
-graphRT$max = graphRT$mean + (graphRT$se*critT)
+graphRT3$min = graphRT3$mean - (graphRT3$se*critT3)
+graphRT3$max = graphRT3$mean + (graphRT3$se*critT3)
 
 ####GET AC DATA FROM twoAnimalWordsPRPac.R
-graphRT$ac = paste("(",format(round(graphPE$mean,digits=1),nsmall = 1),")",sep="")
-head(graphRT)
-graphRT$vAdj = 35 #down
-graphRT$vAdj[graphRT$setSize=="incongruent"]=35 #up
-graphRT$hAdj = 0 #right
+graphRT3$ac = paste("(",format(round(graphPE3$mean,digits=1),nsmall = 1),")",sep="")
+head(graphRT3)
+graphRT3$vAdj = 35 #down
+graphRT3$vAdj[graphRT$setSize=="incongruent"]=35 #up
+graphRT3$hAdj = 0 #right
 #graphRT$hAdj[graphRT$posture=="SITTING"]=-60 #left
 
-graphRT$congruency = factor(graphRT$setSize,labels = c("4","8"))
+graphRT3$congruency = factor(graphRT3$setSize,labels = c("4","8"))
 
-interactionPlot <- ggplot(graphRT, aes(setSize, mean, group=posture)) + 
+interactionPlot3 <- ggplot(graphRT3, aes(setSize, mean, group=posture)) + 
   theme(legend.position = "none")+
   scale_fill_manual(values=c("#FFFFFF","#999999","#FFFFFF","#999999"))+
   coord_cartesian(ylim=c(500,950),expand=TRUE)+
   scale_y_continuous(breaks = round(seq(500, 950, by = 100),0))+
-  geom_text(aes(label=ac),nudge_x=graphRT$hAdj,nudge_y =graphRT$vAdj,size=5)+
+  geom_text(aes(label=ac),nudge_x=graphRT3$hAdj,nudge_y =graphRT3$vAdj,size=5)+
   geom_bar(stat="identity", aes(fill=interaction(setSize)),colour="black")+
   geom_errorbar(aes(ymin=min,ymax=max,group=interaction(posture,setSize)), width=.1)+
   labs(x = "Set Size", y = "Response Time (ms)") +
   theme(axis.ticks = element_line(size = 1, colour = "black", linetype = "solid"),
         axis.ticks.length = unit(.25,"cm"),
-        axis.line = element_line(size = 1, colour = "black", linetype = "solid"),
-        panel.background = element_rect(fill = "white", colour = "black", size = 1),
+        #axis.line = element_line(size = 1, colour = "black", linetype = "solid"),
+        panel.background = element_rect(fill = "white", colour = "white", size = 1),
         axis.text=element_text(size=16),
         axis.title=element_text(size=22,face="bold"),
         strip.text = element_text(size = 20, face = "bold",colour = "black", angle = 0),
+        panel.border = element_rect(colour = "black", fill = NA, size = 0.50),
         strip.background = element_rect(fill=NA,colour="NA",size = 2))+
   facet_grid(~posture)
 
-ggsave(interactionPlot, 
+interactionPlot3
+
+ggsave(interactionPlot3, 
        file = "plots/exp3_visual_search_interaction_plot.pdf", 
        units = "in",
        width = 8.5, 
        height = 5,
        dpi = 600)  
-
-interactionPlot
 
 ```
 
@@ -1254,7 +1271,7 @@ stroop.plot <- ggplot(data = stroop.effects, aes(x = pesSmith, y = pesReplicatio
                                          fill = "lightgray"),
         legend.title = element_blank(),
         legend.margin=margin(-3,5,0,0)) +
-  labs(y = "Replication", x = "Smith", title = "Stroop")
+  labs(y = "Replication", x = "Smith et al.", title = "Stroop")
 
 ###Exp2 (Task-switching)
 smith.ts <- smith_anovas[[3]] %>%
@@ -1325,7 +1342,7 @@ vs.plot <- ggplot(data = vs.effects, aes(x = pesSmith, y = pesReplication, shape
                                          fill = "lightgray"),
         legend.title = element_blank(),
         legend.margin=margin(-3,5,0,0)) +
-  labs(y = "Replication", x = "Smith", title = "Visual Search")
+  labs(y = "Replication", x = "Smith et al.", title = "Visual Search")
 
 all.plot <- plot_grid(stroop.plot, ts.plot, vs.plot, ncol = 3)
 
@@ -1411,7 +1428,7 @@ original.effects    <- subset(forest.data, Experiment == "Smith")
 
 #As a percentage
 prop.effects <- (replication.effects$pes/original.effects$pes)*100
-#< 1%, ~9%, and < lo1%
+#< 1%, ~9%, and <1%
 prop.effects
 
 #Average proportion is 3.28%
