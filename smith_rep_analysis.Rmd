@@ -1,6 +1,6 @@
 ---
 title: "Smith Replication Data Analysis"
-author: "Laura Marusich, Jon Bakdash, Emilie Caron"
+author: "Laura Marusich, Michael Reynolds, Jon Bakdash, and Emilie Caron"
 date: "`r Sys.Date()`"
 output: pdf_document
 editor_options: 
@@ -1368,7 +1368,7 @@ all.plot <- plot_grid(
 all.plot
 
 ggsave(all.plot, 
-       file = "plots/all_effects_plot.pdf", 
+       file = "plots/OSF_all_effects_plot.pdf", 
        units = "in",
        width = 9.5, 
        height = 4.50,
