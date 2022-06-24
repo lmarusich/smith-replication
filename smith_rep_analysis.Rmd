@@ -12,16 +12,15 @@ knitr::opts_chunk$set(echo = TRUE)
 
 options(width = 100)
 
-
 if(!require("pacman")) install.packages("pacman")
 pacman::p_load(knitr, rmarkdown, plyr, tidyverse, afex, ez, BayesFactor, psych,
                apaTables, psychReport, superb, reshape2, readxl, cowplot, rlang,
-               scales, rmarkdown, ggstance, renv
+               scales, rmarkdown, ggstance, farver, highr, MBESS, labeling 
 )
 
-#Create plots and tables directory 
-dir.create(file.path(getwd(),"/plots"),  showWarnings = F)
-dir.create(file.path(getwd(),"/output"),  showWarnings = F)
+#Create results folder and subfolder for plots
+dir.create(file.path(getwd(),"/results"),  showWarnings = F)
+dir.create(file.path(getwd(),"/results/plots"),  showWarnings = F)
 
 #Get the working directory
 workingdir <- getwd()
@@ -32,6 +31,7 @@ source(paste0(workingdir, "/fcts/ng_colours.R"))
 source(paste0(workingdir, "/fcts/geom_effect.R"))
 
 #Modified version of forestplot from ggforestplot
+#Otherwise devtools is required
 #This modded version is from: https://osf.io/bxpjc/
 source(paste0(workingdir, "/fcts/mod.forestplot.R"))
 
@@ -42,12 +42,12 @@ source(paste0(workingdir, "/fcts/pjTrimmingV2.R"))
 # Save References, R Evnironment, and Session Information
 ```{r}
 # References for R packages
-#install.packages(devtools)
-#require(devtools)
-#devtools::install_github("crsh/papaja")
-#require(papaja)
-
-#papaja::r_refs(file = "output/r-package-refs.bib") #<-- writes bib file w/refs
+# install.packages(devtools)
+# require(devtools)
+# devtools::install_github("crsh/papaja")
+# require(papaja)
+# 
+# papaja::r_refs(file = "results/r-package-refs.bib") #<-- writes bib file w/refs
 
 #Save package versions
 #renv::snapshot()
@@ -60,7 +60,7 @@ sessionInfo()
 ## Import and clean data
 
 ```{r}
-stroop_files = list.files(path = "Experiment 1 Data/", full.names = T) 
+stroop_files = list.files(path = "data/Experiment 1 Data/", full.names = T) 
 stroop_files = stroop_files[str_detect(stroop_files,pattern="(?=.*SJ)(?=.*.txt)")]
                  
 mergedStroopData <- ldply(stroop_files, 
@@ -131,7 +131,7 @@ observationDataStroop$validTrials = data.frame(ftable(blockType~sj, mergedStroop
 print(paste("percent invalid trials = ", 
             ((totalStroopTrials-validStroopRTTrials)/totalStroopTrials)*100))
 
-write.table(mergedStroopData, file = "Experiment 1 Data/merged_stroop_data.txt", 
+write.table(mergedStroopData, file = "results/exp1_merged_stroop_data.txt", 
             row.names = F)
 
 stroopCorrect = mergedStroopData[mergedStroopData$ac == 1, ]
@@ -382,7 +382,7 @@ interactionPlot <- ggplot(graphRT, aes(congruency, mean, group=posture)) +
 interactionPlot
 
 ggsave(interactionPlot, 
-       file = "plots/exp1_stroop_interaction_plot.pdf", 
+       file = "results/plots/fig1_exp1_stroop_interaction_plot.pdf", 
        units = "in",
        width = 8.5, 
        height = 5,
@@ -397,7 +397,7 @@ apa.2way.table(congruency,
                stroopCombined,
                show.conf.interval = TRUE,
                landscape=TRUE,
-               filename = "Output/exp1_table.doc")
+               filename = "results/plots/exp1_table.doc")
 exp1.table
 ```
 
@@ -407,8 +407,7 @@ exp1.table
 ```{r}
 
 ###read in data
-
-ts_path <- "/Experiment 2 Data/task-switching-replication-recoded-2.csv"
+ts_path <- "/data/Experiment 2 Data/task-switching-replication-recoded-2.csv"
 task_switching_raw <- read.csv(paste0(workingdir, ts_path))
 head(task_switching_raw)
 
@@ -494,7 +493,7 @@ length(unique(ts_acc_mean$participant))
 ```
 ## Summarize Demographics
 ```{r}
-demo_raw <- read.csv(paste0(workingdir, 
+demo_raw <- read.csv(paste0(workingdir, "/data", 
                             "/Experiment 2 Data/Task Switching_February 24, 2022_13.05.csv"),
                      skip = 1) %>%
   slice(-1) %>%
@@ -552,7 +551,6 @@ lang_table
 ## Accuracy results
 
 ```{r}
-
 #Accuracy for all cells
 hist(ts_acc_mean$Accuracy)
 hist(ts_acc_mean$PE)
@@ -571,11 +569,11 @@ acc.stats.TS <- ezStats(ts_acc_mean,
                       within = .(posture, congruentTrialType, switchTrialType), 
                       type = 3
 )
-write.csv(acc.stats.TS[ ,-7], file = "output/exp2_Descriptives_ACC.csv", 
+write.csv(acc.stats.TS[ ,-7], file = "results/exp2_Descriptives_ACC.csv", 
           row.names = F)
 
 
-write.csv(accModelTS$anova_table, "output/exp2_ANOVA_acc.csv")
+write.csv(accModelTS$anova_table, "results/exp2_ANOVA_acc.csv")
 accModelTS
 
 #Calculate confidence interval: PES for posture x switch/condition interaction
@@ -607,9 +605,9 @@ acc_plot <-
                      labels = c("Sitting", "Standing")) +
   labs(y = "Percent Error")
 
-
+#Note this is Figure 3, not figure 2 (drawn below)
 ggsave(acc_plot, 
-       file = "plots/exp2_ts_acc_plot.pdf", 
+       file = "results/plots/fig3_exp2_ts_acc_plot.pdf", 
        units = "in",
        width = 6.62, 
        height = 5.50,
@@ -641,7 +639,6 @@ bfValues2[3]/bfValues2[4]
 
 ## Reaction time results
 ```{r}
-
 #look at reaction time for correct trials
 ts_correct_only <- task_switching_raw3 %>%
   filter(correct_bin == 1)
@@ -700,7 +697,7 @@ trimmed_RT_plot <-
   labs(y = "Response Time (ms)")
 
 ggsave(trimmed_RT_plot, 
-       file = "plots/exp2_ts_trimmed_RT_plot.pdf", 
+       file = "results/plots/fig2_exp2_ts_trimmed_RT_plot.pdf", 
        units = "in",
        width = 6.62, 
        height = 5.50,
@@ -724,10 +721,10 @@ rt.stats.TS <- ezStats(trimmed_rt_mean_TS,
                                  type = 3
 )
 write.csv(rt.stats.TS[ ,-7], 
-          file = "output/exp2_Descriptives_trimmed_RT.csv", 
+          file = "results/exp2_Descriptives_trimmed_RT.csv", 
           row.names = F)
 
-write.csv(rtModelTS$anova_table, file = "output/exp2_ANOVA_trimmed_RT.csv")
+write.csv(rtModelTS$anova_table, file = "results/exp2_ANOVA_trimmed_RT.csv")
 rtModelTS
 
 ```
@@ -738,7 +735,7 @@ rtModelTS
 
 ```{r}
 
-vs_files = list.files(path = "Experiment 3 Data/", full.names = T) 
+vs_files = list.files(path = "data/Experiment 3 Data/", full.names = T) 
 vs_files = vs_files[str_detect(vs_files,pattern="(?=.*SJ)(?=.*.txt)")]
 
 merged.VS.data <- ldply(vs_files, 
@@ -790,7 +787,7 @@ ftable(posture+target+distractor+setSize~sj, merged.VS.data)
 #...check that only experimental trials are left
 unique(merged.VS.data$blockType)
 
-write.table(merged.VS.data, file = "Experiment 3 Data/merged_vs_data.txt", row.names = F)
+write.table(merged.VS.data, file = "results/exp3_merged_vs_data.txt", row.names = F)
 
 #...count trials
 totalTrialsVS = dim(merged.VS.data)[1]
@@ -902,7 +899,7 @@ bfValues3 = anovaBF(meanRT~setSize*postureFactor+sj,
                    whichRandom = "sj", 
                    method="laplace")
 bfValues3
-warnings()
+
 #...get the Bayes factor for the Null Interaction
 bfValues3[3]/bfValues3[4]
 1/(bfValues3[3]/bfValues3[4])
@@ -1057,7 +1054,7 @@ interactionPlot3 <- ggplot(graphRT3, aes(setSize, mean, group=posture)) +
 interactionPlot3
 
 ggsave(interactionPlot3, 
-       file = "plots/exp3_visual_search_interaction_plot.pdf", 
+       file = "results/plots/fig4_exp3_visual_search_interaction_plot.pdf", 
        units = "in",
        width = 8.5, 
        height = 5,
@@ -1073,11 +1070,11 @@ ggsave(interactionPlot3,
 ### Experiment 1 (Stroop)
 
 #load acc data
-Smith_Exp1_acc <- read_excel("smith_data.xlsx", 
+Smith_Exp1_acc <- read_excel("data/smith_data.xlsx", 
                              sheet = "Exp1Acc", 
                              n_max = 14) #Sample size in Smith 
 #load rt data
-Smith_Exp1_rt <- read_excel("smith_data.xlsx", 
+Smith_Exp1_rt <- read_excel("data/smith_data.xlsx", 
                             sheet = "Exp1RT", 
                             n_max = 14)
 
@@ -1113,11 +1110,11 @@ kable(nice(Smith_exp1_anova_rt), caption = "ANOVA results for Smith Exp 1 - RT")
 ### Experiment 2 (Task-switching)
 
 #load acc data
-Smith_Exp2_acc <- read_excel("smith_data.xlsx", 
+Smith_Exp2_acc <- read_excel("data/smith_data.xlsx", 
                              sheet = "Exp2Acc", 
                              n_max = 30)
 #load rt data
-Smith_Exp2_rt <- read_excel("smith_data.xlsx", 
+Smith_Exp2_rt <- read_excel("data/smith_data.xlsx", 
                             sheet = "Exp2RT", 
                             n_max = 30)
 
@@ -1155,13 +1152,13 @@ kable(nice(Smith_exp2_anova_rt), caption = "ANOVA results for Smith Exp 2 - RT")
 ### Experiment 3 (Visual Search)
 
 #load acc data
-Smith_Exp3_acc <- read_excel("smith_data.xlsx", 
+Smith_Exp3_acc <- read_excel("data/smith_data.xlsx", 
                              sheet = "Exp3Acc", 
                              n_max = 12) %>%
   select(subj:sit8)
 
 #load rt data
-Smith_Exp3_rt <- read_excel("smith_data.xlsx", 
+Smith_Exp3_rt <- read_excel("data/smith_data.xlsx", 
                             sheet = "Exp3RT", 
                             n_max = 12)%>%
   select(subj:sit8)
@@ -1376,7 +1373,7 @@ all.plot <- plot_grid(
 all.plot
 
 ggsave(all.plot, 
-       file = "plots/OSF_all_effects_plot.pdf", 
+       file = "results/plots/supp_all_effects_plot.pdf", 
        units = "in",
        width = 9.5, 
        height = 4.50,
@@ -1424,7 +1421,7 @@ forest.comp <- mod.forestplot(df = forest.data,
 forest.comp
 
 ggsave(forest.comp, 
-       file = "plots/forest_plot.pdf", 
+       file = "results/plots/fig5_forest_plot.pdf", 
        units = "in",
        width = 6, 
        height = 6,
