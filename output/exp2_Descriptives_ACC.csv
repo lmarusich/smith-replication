@@ -1,9 +1,9 @@
 "posture","congruentTrialType","switchTrialType","N","Mean","SD"
-"sitting","congruent","noswitch",51,0.964140288016167,0.0331603433104
-"sitting","congruent","switch",51,0.943434662268329,0.0509879706113196
-"sitting","incongruent","noswitch",51,0.907714833149934,0.0708625880780538
-"sitting","incongruent","switch",51,0.818472737410007,0.11476732064927
-"standing","congruent","noswitch",51,0.95620350053034,0.0382085193784107
-"standing","congruent","switch",51,0.934203196902657,0.0584624345704651
-"standing","incongruent","noswitch",51,0.88813925546697,0.0953529031113103
-"standing","incongruent","switch",51,0.816843900637529,0.106320192594922
+"sitting","congruent","noswitch",51,3.58597119838328,3.31603433104
+"sitting","congruent","switch",51,5.65653377316713,5.09879706113197
+"sitting","incongruent","noswitch",51,9.22851668500656,7.08625880780538
+"sitting","incongruent","switch",51,18.1527262589993,11.476732064927
+"standing","congruent","noswitch",51,4.37964994696596,3.82085193784107
+"standing","congruent","switch",51,6.57968030973426,5.8462434570465
+"standing","incongruent","noswitch",51,11.186074453303,9.53529031113103
+"standing","incongruent","switch",51,18.3156099362471,10.6320192594922

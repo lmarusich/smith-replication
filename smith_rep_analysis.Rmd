@@ -443,6 +443,10 @@ task_switching_raw2 <- task_switching_raw %>%
 task_switching_raw2$correct_bin <- recode(task_switching_raw2$correct, 
                                           "no"  = 0,
                                           "yes" = 1)
+#Change RTs from seconds to milliseconds
+task_switching_raw2 <-  task_switching_raw2 %>%
+  mutate(reactionTime = reactionTime * 1000) 
+                                          
 
 #Calc overall acc by participant
 ts_overall_acc <- task_switching_raw2 %>%
@@ -465,14 +469,17 @@ ts_acc_mean <- task_switching_raw3 %>%
            posture,
            congruentTrialType, 
            switchTrialType) %>%
-  summarize(Accuracy    = mean(correct_bin))
+  summarize(Accuracy    = mean(correct_bin),
+            PE = (1 - Accuracy) * 100)
 
 #Convert data to wide format (for statview/SPSS/etc) 
 ts_acc_mean_wide <- ts_acc_mean %>%
+  select(-Accuracy) %>%
   pivot_wider(names_from = c(posture, 
                              congruentTrialType,
                              switchTrialType), 
-              values_from =   Accuracy)
+              values_from =   PE) 
+
 
 # ts_acc_mean <- data.frame(ts_acc_mean)
 ts_acc_mean <- ts_acc_mean %>%
@@ -548,9 +555,10 @@ lang_table
 
 #Accuracy for all cells
 hist(ts_acc_mean$Accuracy)
+hist(ts_acc_mean$PE)
 
 accModelTS <- aov_ez(data = ts_acc_mean, 
-                      dv = "Accuracy", 
+                      dv = "PE", 
                       id = "participant", 
                       within = c("posture", "congruentTrialType", "switchTrialType"), 
                       type = 3, 
@@ -558,7 +566,7 @@ accModelTS <- aov_ez(data = ts_acc_mean,
 )
 
 acc.stats.TS <- ezStats(ts_acc_mean, 
-                      dv = Accuracy, 
+                      dv = PE, 
                       wid = participant, 
                       within = .(posture, congruentTrialType, switchTrialType), 
                       type = 3
@@ -592,12 +600,12 @@ acc_plot <-
              factorOrder = c("Condition","Posture","Congruent"),
              adjustments = list(purpose = "difference"))+
   theme_classic() +
-  ylim(0.77, 1) + #Trying to make ylim same as the Smith w/o cutting off error bars
+  ylim(0, 22) + #Trying to make ylim same as the Smith w/o cutting off error bars
   facet_wrap(vars(Congruent), labeller = labeller(Congruent = congruent.labs)) +
   scale_x_discrete(labels=c("1" = "No Switch", "2" = "Switch"))+
   scale_color_manual(values=c("#E69F00", "#0072B2"), 
                      labels = c("Sitting", "Standing")) +
-  labs(y = "Accuracy")
+  labs(y = "Percent Error")
 
 
 ggsave(acc_plot, 
@@ -640,10 +648,10 @@ ts_correct_only <- task_switching_raw3 %>%
 
 #Second exclusion criteria
 #How many trials faster than 100 ms? Only a single one
-sum(ts_correct_only$reactionTime < 0.100)
+sum(ts_correct_only$reactionTime < 100)
 dim(ts_correct_only)
 
-ts_correct_only2 <- ts_correct_only %>% filter(reactionTime >= 0.100) 
+ts_correct_only2 <- ts_correct_only %>% filter(reactionTime >= 100) 
 #Sanity check, one trial is dropped. Now have 17,698 trials
 dim(ts_correct_only2)
 
@@ -667,7 +675,7 @@ trimmed_rt_mean_TS <- trimmedTSData %>%
            posture,
            congruentTrialType, 
            switchTrialType) %>%
-  summarize(mean_rt    = mean(reactionTime)*1000)
+  summarize(mean_rt    = mean(reactionTime))
 
 #Convert data to wide format 
 trimmed_rt_mean_TS_wide <- trimmed_rt_mean_TS %>%
