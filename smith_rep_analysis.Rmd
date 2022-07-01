@@ -39,7 +39,7 @@ source(paste0(workingdir, "/fcts/mod.forestplot.R"))
 source(paste0(workingdir, "/fcts/pjTrimmingV2.R"))
 ```
 
-# Save References, R Evnironment, and Session Information
+# Save References, R Environment, and Session Information
 ```{r}
 # References for R packages
 # install.packages(devtools)
@@ -1447,13 +1447,13 @@ mean(prop.effects)
 
 #compare different criteria for removing long trials
 criteria <- seq(1000, 2000, by = 100)
+ncriteria <- length(criteria)
 criteria.dat <- merged.VS.data.orig
 
 for (i in criteria){
   criteria.dat <- criteria.dat %>%
     mutate("drop{i}" := ifelse(rt >= i | ac == 0, 0, 1))
 }
-
 
 vsPEcriteria = criteria.dat %>%
   group_by(sj, cb, setSize, posture) %>%
@@ -1465,11 +1465,11 @@ vsPEcriteria$cb = factor(vsPEcriteria$cb)
 vsPEcriteria$setSize = factor(vsPEcriteria$setSize)
 vsPEcriteria$postureFactor = factor(vsPEcriteria$posture)
 
-criteria.effect.sizes <- numeric(length(criteria))
-criteria.p.vals <- numeric(length(criteria))
-criteria.LLs <- numeric(length(criteria))
-criteria.ULs <- numeric(length(criteria))
-
+criteria.results <- data.frame(cutoff = criteria,
+                               es = numeric(ncriteria),
+                               p.vals = numeric(ncriteria),
+                               ci.LL = numeric(ncriteria),
+                               ci.UL = numeric(ncriteria))
 
 for (i in 1:length(criteria)){
   
@@ -1480,24 +1480,27 @@ for (i in 1:length(criteria)){
                                within = c('posture', 'setSize'),
                                anova_table = list(es = "pes", correction = "none"),
                                type = 3)
-  criteria.effect.sizes[i] <- tempmod$anova_table$pes[3]
-  criteria.p.vals[i] <- tempmod$anova_table$`Pr(>F)`[3]
-  criteria.LLs[i] <- get.ci.partial.eta.squared( F.value = tempmod$anova_table$F[3],
-                              df1 = tempmod$anova_table$`num Df`[3],
-                              df2 = tempmod$anova_table$`den Df`[3])$LL
-  criteria.ULs[i] <- get.ci.partial.eta.squared( F.value = tempmod$anova_table$F[3],
-                              df1 = tempmod$anova_table$`num Df`[3],
-                              df2 = tempmod$anova_table$`den Df`[3])$UL
+  
+  criteria.results$es[i] <- tempmod$anova_table$pes[3]
+  criteria.results$p.vals[i] <- tempmod$anova_table$`Pr(>F)`[3]
+  criteria.results$ci.LL[i] <- get.ci.partial.eta.squared(F.value=tempmod$anova_table$F[3],
+                                                    df1=tempmod$anova_table$`num Df`[3],
+                                                    df2 = tempmod$anova_table$`den Df`[3])$LL
+  criteria.results$ci.UL[i] <- get.ci.partial.eta.squared(F.value=tempmod$anova_table$F[3],
+                                                    df1=tempmod$anova_table$`num Df`[3],
+                                                    df2 = tempmod$anova_table$`den Df`[3])$UL
   
 }
 
-plot(criteria, criteria.effect.sizes,
-     xlab = "Reaction Time Cutoff (ms)",
-     ylab = "Interaction Effect Size (PES)",
-     pch = 16,
-     col = ifelse(criteria.p.vals < 0.05, "red", "black"),
-     ylim = c(0,.25))
-arrows(x0 = criteria, y0 = criteria.LLs, y1 = criteria.ULs, angle = 90, code = 3)
+criteria.results$sig <- ifelse(criteria.results$p.vals < 0.05, "p < 0.05", "p \u2265 0.05")
 
-  
+ggplot(criteria.results, aes(criteria, es, col = sig)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = ci.LL, ymax = ci.UL)) +
+  scale_color_manual(values = c("red","black")) + 
+  theme_classic(base_size = 16) + 
+  theme(legend.title = element_blank()) +
+  labs(y = "Interaction Effect Size (PES)", x = "Reaction Time Cutoff (ms)")
+
+
 ```
