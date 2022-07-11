@@ -1494,6 +1494,7 @@ for (i in 1:length(criteria)){
 
 criteria.results$sig <- ifelse(criteria.results$p.vals < 0.05, "p < 0.05", "p \u2265 0.05")
 
+exp3_rt_cutoff <-
 ggplot(criteria.results, aes(criteria, es, col = sig)) +
   geom_point(size = 3) +
   geom_errorbar(aes(ymin = ci.LL, ymax = ci.UL)) +
@@ -1502,5 +1503,10 @@ ggplot(criteria.results, aes(criteria, es, col = sig)) +
   theme(legend.title = element_blank()) +
   labs(y = "Interaction Effect Size (PES)", x = "Reaction Time Cutoff (ms)")
 
-
+ggsave(exp3_rt_cutoff, 
+       file = "results/plots/supp_exp3_RT_cutoff.pdf", 
+       units = "in",
+       width = 9, 
+       height = 6,
+       dpi = 600)
 ```
