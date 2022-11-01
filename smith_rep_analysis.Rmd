@@ -1,5 +1,5 @@
 ---
-title: "Smith Replication Data Analysis"
+title: "Smith Replication: Primary Data Analysis"
 author: "Laura Marusich, Michael Reynolds, Jon Bakdash, and Emilie Caron"
 date: "`r Sys.Date()`"
 output: pdf_document
@@ -39,7 +39,7 @@ source(paste0(workingdir, "/fcts/mod.forestplot.R"))
 source(paste0(workingdir, "/fcts/pjTrimmingV2.R"))
 ```
 
-# Save References, R Environment, and Session Information
+# Session Information
 ```{r}
 # References for R packages
 # install.packages(devtools)
@@ -55,6 +55,15 @@ source(paste0(workingdir, "/fcts/pjTrimmingV2.R"))
 sessionInfo()
 
 ```
+
+## *Unconventional* Analysis: Time-Outs (>=1500 ms to respond) are treated as
+## errors. The primary results are reported using this atypical approach to be 
+## to be consistent with the original paper by Smith et al.
+
+## In the Appendix, we perform a *Conventional* Analysis which 
+## drops the time-outs. 
+
+
 # Experiment 1 - Stroop
 
 ## Import and clean data
@@ -131,7 +140,15 @@ observationDataStroop$validTrials = data.frame(ftable(blockType~sj, mergedStroop
 print(paste("percent invalid trials = ", 
             ((totalStroopTrials-validStroopRTTrials)/totalStroopTrials)*100))
 
-write.table(mergedStroopData, file = "results/exp1_merged_stroop_data.txt", 
+#Drops "time-out" trials
+mergedStroopData.conventional <- mergedStroopData %>% 
+                                  filter(rt != 0 & !is.na(ac))
+
+write.csv(mergedStroopData, file = "results/exp1_merged_stroop_data.csv", 
+            row.names = F)
+
+#Conventional analysis drops the time out trials, rather than treating as errors
+write.table(mergedStroopData.conventional, file = "results/exp1_merged_stroop_data_conv.txt", 
             row.names = F)
 
 stroopCorrect = mergedStroopData[mergedStroopData$ac == 1, ]
@@ -235,6 +252,7 @@ paste(rtModelStroop$ANOVA$Effect,":  F(",
       round(rtModelStroop$ANOVA$SSn/(rtModelStroop$ANOVA$SSn+rtModelStroop$ANOVA$SSd),4),
       sep="")
 
+
 #...CALCULATE THE BAYES FACTORS FOR THE RT ANALYSIS
 stroopBF = stroopCombined
 stroopBF$posture = factor(stroopBF$posture)
@@ -270,7 +288,6 @@ t.test(sittingStroop$meanRT[sittingStroop$congruency=="congruent"],
 ## Percent error results
 
 ```{r}
-
 errModelStroop <- ezANOVA(stroopCombined, 
                    dv = .(meanPE),
                    wid=.(sj),
@@ -294,6 +311,18 @@ paste(errModelStroop$ANOVA$Effect,":  F(",
       ", partialEtaSq = ",
       round(errModelStroop$ANOVA$SSn/(errModelStroop$ANOVA$SSn+errModelStroop$ANOVA$SSd),4),
       sep="")
+
+#BF for errors
+bfValues1.error = anovaBF(meanPE~congruency*posture+sj,
+                          data = stroopBF,
+                          whichRandom = "sj", 
+                          method="laplace")
+
+bfValues1.error
+
+#...get the Bayes factor for the Null Interaction
+bfValues1.error[3]/bfValues1.error[4]
+1/(bfValues1.error[3]/bfValues1.error[4])
 
 #...ERRORs
 #... stroop effect (incongruent - congruent) FOR Standing
@@ -461,6 +490,22 @@ low_acc_subs <- ts_overall_acc %>% filter(Accuracy < 0.80) %>%
 task_switching_raw3 <- task_switching_raw2 %>% 
   filter(!(participant %in% low_acc_subs))
 
+#Summary of time-out trials
+timeOutTaskSwitch = task_switching_raw3 %>% 
+                                    filter(is.na(reactionTime))
+
+ftable(posture~congruentTrialType, timeOutTaskSwitch)
+ftable(posture~congruentTrialType~switchTrialType, timeOutTaskSwitch)
+ftable(congruentTrialType ~ participant, timeOutTaskSwitch)
+ftable(switchTrialType ~ participant, timeOutTaskSwitch)
+
+#Drop "time-out" trials
+task_switching_raw.conventional <- task_switching_raw3 %>% 
+                                    filter(!is.na(reactionTime))
+
+write.csv(task_switching_raw.conventional, file = "results/exp2_merged_ts_conv.csv", 
+            row.names = F)
+
 #Calc mean Acc by participant and conditions (posture, con, switch)  
 #Narrow format 
 ts_acc_mean <- task_switching_raw3 %>%
@@ -479,8 +524,6 @@ ts_acc_mean_wide <- ts_acc_mean %>%
                              switchTrialType), 
               values_from =   PE) 
 
-
-# ts_acc_mean <- data.frame(ts_acc_mean)
 ts_acc_mean <- ts_acc_mean %>%
   ungroup() %>%
   mutate(across(posture:switchTrialType, as.factor))
@@ -727,6 +770,22 @@ write.csv(rt.stats.TS[ ,-7],
 write.csv(rtModelTS$anova_table, file = "results/exp2_ANOVA_trimmed_RT.csv")
 rtModelTS
 
+
+trimmed_rt_mean_TS2 <- data.frame(trimmed_rt_mean_TS)
+trimmed_rt_mean_TS2$participant = factor(trimmed_rt_mean_TS2$participant)
+trimmed_rt_mean_TS2$posture = factor(trimmed_rt_mean_TS2$posture)
+trimmed_rt_mean_TS2$congruentTrialType = factor(trimmed_rt_mean_TS2$congruentTrialType)
+trimmed_rt_mean_TS2$switchTrialType  = factor(trimmed_rt_mean_TS2$switchTrialType)
+
+bfValues2.RT = anovaBF(mean_rt ~ posture*switchTrialType+participant,
+                   data = trimmed_rt_mean_TS2,
+                   whichRandom = "participant", 
+                   method="laplace")
+bfValues2.RT
+
+#...get the Bayes factor for the Null Interaction (vs. model w/no interaction) 
+bfValues2.RT[3]/bfValues2.RT[4]
+1/(bfValues2.RT[3]/bfValues2.RT[4])
 ```
 
 # Experiment 3 - Visual search
@@ -734,7 +793,6 @@ rtModelTS
 ## Import and clean data
 
 ```{r}
-
 vs_files = list.files(path = "data/Experiment 3 Data/", full.names = T) 
 vs_files = vs_files[str_detect(vs_files,pattern="(?=.*SJ)(?=.*.txt)")]
 
@@ -799,6 +857,20 @@ validRTTrialsVS = dim(merged.VS.data)[1]
 observationDataVS$validTrials = data.frame(ftable(blockType~sj, merged.VS.data))[,c(3)]
 
 print(paste("percent invalid trials = ", ((totalTrialsVS-validRTTrialsVS)/totalTrialsVS)*100))
+
+#...get the number of time outs
+timeOutVS = merged.VS.data %>% filter(rt >= 1500)
+dim(timeOutVS)[1]
+
+ftable(posture~setSize, timeOutVS)
+ftable(posture~sj, timeOutVS)
+ftable(blockType~setSize, timeOutVS)
+
+merged.VS.data.convention <- merged.VS.data %>% filter(rt < 1500)
+write.csv(merged.VS.data.convention, 
+          file = "results/exp3_merged_vs_data_conv.csv", 
+          row.names = F)
+
 
 #...this code changes the 1550ms+ trials into errors
 merged.VS.data.orig <- merged.VS.data
@@ -980,6 +1052,17 @@ searchratesit
 #One-sample t-tests 
 t.test(wideData$standingEffect)
 t.test(wideData$sittingEffect)
+
+#...CALCULATE THE BAYES FACTORS FOR THE RT ANALYSIS
+bfValues3.error = anovaBF(meanPE~setSize*postureFactor+sj,
+                   data = vsCombined,
+                   whichRandom = "sj", 
+                   method="laplace")
+bfValues3.error
+
+#...get the Bayes factor for the Null Interaction
+bfValues3.error[3]/bfValues3.error[4]
+1/(bfValues3.error[3]/bfValues3.error[4])
 ```
 
 ## Make plots for visual search
@@ -1502,6 +1585,8 @@ ggplot(criteria.results, aes(criteria, es, col = sig)) +
   theme_classic(base_size = 16) + 
   theme(legend.title = element_blank()) +
   labs(y = "Interaction Effect Size (PES)", x = "Reaction Time Cutoff (ms)")
+
+exp3_rt_cutoff
 
 ggsave(exp3_rt_cutoff, 
        file = "results/plots/supp_exp3_RT_cutoff.pdf", 
