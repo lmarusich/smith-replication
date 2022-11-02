@@ -142,7 +142,7 @@ print(paste("percent invalid trials = ",
 
 #Drops "time-out" trials
 mergedStroopData.conventional <- mergedStroopData %>% 
-                                  filter(rt != 0 & !is.na(ac))
+                                  filter(rt != 0 & resp != 0)
 
 write.csv(mergedStroopData, file = "results/exp1_merged_stroop_data.csv", 
             row.names = F)
@@ -1522,6 +1522,59 @@ prop.effects
 
 #Average proportion is 3.28%
 mean(prop.effects)
+```
+
+# Appendix: Analysis with conventional dropping of timeout trials (only affects PE analysis)
+```{r}
+### Experiment 1 Stroop
+e1.conv.PE = plyr::ddply(mergedStroopData.conventional, 
+                     .(sj, cb,congruency,posture), 
+                     summarise, 
+                     meanPE = 100 - (mean(ac)*100))
+
+e1.conv.PE$posture = factor(e1.conv.PE$posture)
+e1.conv.PE$congruency = factor(e1.conv.PE$congruency)
+e1.conv.PE$sj = factor(e1.conv.PE$sj)
+
+
+e1.conv.errmodel <- ezANOVA(e1.conv.PE, 
+                   dv = .(meanPE),
+                   wid=.(sj),
+                   within=.(posture,congruency), 
+                   detailed=TRUE, 
+                   type=3,
+                   return_aov = TRUE)
+
+e1.conv.MSE = e1.conv.errmodel$ANOVA$SSd/e1.conv.errmodel$ANOVA$DFd
+
+paste(e1.conv.errmodel$ANOVA$Effect,":  F(",
+      e1.conv.errmodel$ANOVA$DFn,
+      ", ",
+      e1.conv.errmodel$ANOVA$DFd,
+      ") = ",
+      round(e1.conv.errmodel$ANOVA$F,3),
+      ", MSE = ",
+      round(e1.conv.MSE,3),
+      ", p = ",
+      round(e1.conv.errmodel$ANOVA$p,3),
+      ", partialEtaSq = ",
+      round(e1.conv.errmodel$ANOVA$SSn/(e1.conv.errmodel$ANOVA$SSn+e1.conv.errmodel$ANOVA$SSd),4),
+      sep="")
+
+#BF for errors
+e1.conv.BF = anovaBF(meanPE~congruency*posture+sj,
+                          data = e1.conv.PE,
+                          whichRandom = "sj", 
+                          method="laplace")
+e1.conv.BF
+
+#...get the Bayes factor for the Null Interaction
+e1.conv.BF[3]/e1.conv.BF[4]
+1/(e1.conv.BF[3]/e1.conv.BF[4])
+
+
+
+
 ```
 
 # Exp 3: Effect of different RT cutoffs on PE interaction
