@@ -60,7 +60,7 @@ sessionInfo()
 ## errors. The primary results are reported using this atypical approach to be 
 ## to be consistent with the original paper by Smith et al.
 
-## In the Appendix, we perform a *Conventional* Analysis which 
+## In the Appendix, we present a *Conventional* Analysis which 
 ## drops the time-outs. 
 
 
@@ -1525,8 +1525,9 @@ mean(prop.effects)
 ```
 
 # Appendix: Analysis with conventional dropping of timeout trials (only affects PE analysis)
+
+## Experiment 1: Stroop
 ```{r}
-### Experiment 1 Stroop
 e1.conv.PE = plyr::ddply(mergedStroopData.conventional, 
                      .(sj, cb,congruency,posture), 
                      summarise, 
@@ -1571,16 +1572,65 @@ e1.conv.BF
 #...get the Bayes factor for the Null Interaction
 e1.conv.BF[3]/e1.conv.BF[4]
 1/(e1.conv.BF[3]/e1.conv.BF[4])
+```
+
+## Experiment 2: Stroop
+```{r}
+e2.conv.PE <- task_switching_raw.conventional %>%
+  group_by(participant, 
+           posture,
+           congruentTrialType, 
+           switchTrialType) %>%
+  summarize(meanPE = (1 - correct_bin) * 100)
+
+e2.conv.PE$posture = factor(e2.conv.PE$posture)
+e2.conv.PE$congruentTrialType = factor(e2.conv.PE$congruentTrialType)
+e2.conv.PE$participant = factor(e2.conv.PE$participant)
+e2.conv.PE$switchTrialType = factor(e2.conv.PE$switchTrialType)
+
+e2.conv.errmodel <- ezANOVA(e2.conv.PE, 
+                   dv = .(meanPE),
+                   wid=.(participant),
+                   within=.(posture,congruentTrialType, switchTrialType), 
+                   detailed=TRUE, 
+                   type=3,
+                   return_aov = TRUE)
 
 
+e2.conv.MSE = e2.conv.errmodel$ANOVA$SSd/e2.conv.errmodel$ANOVA$DFd
 
+paste(e2.conv.errmodel$ANOVA$Effect,":  F(",
+      e2.conv.errmodel$ANOVA$DFn,
+      ", ",
+      e2.conv.errmodel$ANOVA$DFd,
+      ") = ",
+      round(e1.conv.errmodel$ANOVA$F,3),
+      ", MSE = ",
+      round(e2.conv.MSE,3),
+      ", p = ",
+      round(e2.conv.errmodel$ANOVA$p,3),
+      ", partialEtaSq = ",
+      round(e2.conv.errmodel$ANOVA$SSn/(e2.conv.errmodel$ANOVA$SSn+e2.conv.errmodel$ANOVA$SSd),4),
+      sep="")
+
+#BF for errors
+e2.conv.BF = anovaBF(meanPE~congruentTrialType*posture+participant,
+                          data = e2.conv.PE,
+                          whichRandom = "participant", 
+                          method="laplace")
+e2.conv.BF
+
+#...get the Bayes factor for the Null Interaction
+e2.conv.BF[3]/e2.conv.BF[4]
+1/(e2.conv.BF[3]/e2.conv.BF[4])
+```
+## Experiment 3: Visual Search
+```{r}
 
 ```
 
-# Exp 3: Effect of different RT cutoffs on PE interaction
-
+### Effect of different RT cutoffs on PE interaction
 ```{r}
-
 #compare different criteria for removing long trials
 criteria <- seq(1000, 2000, by = 100)
 ncriteria <- length(criteria)
@@ -1647,4 +1697,20 @@ ggsave(exp3_rt_cutoff,
        width = 9, 
        height = 6,
        dpi = 600)
+
+#Not in the supp: Distribution of p-values
+exp3_rt_cutoff.pvals <-
+ggplot(criteria.results, aes(criteria, p.vals)) +
+  geom_point(size = 1.5) +
+  scale_color_manual(values = c("red","black")) + 
+  theme_classic(base_size = 16) + 
+  theme(legend.title = element_blank()) +
+  scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.1)) +
+  labs(y = "p-values", x = "Reaction Time Cutoff (ms)") 
+
+exp3_rt_cutoff.pvals + geom_hline(yintercept = 0.05, color = "red") + 
+                       geom_hline(yintercept = 0.01, color = "darkred") +
+                       geom_hline(yintercept = 0.001, color = "magenta") 
+
+plot(criteria.results$p.vals, criteria.results$es)
 ```
