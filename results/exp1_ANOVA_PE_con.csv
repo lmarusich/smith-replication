@@ -1,0 +1,5 @@
+"","x"
+"1","(Intercept):  F(1, 49) = 54.682, MSE = 69.145, p = 0, partialEtaSq = 0.5274"
+"2","posture:  F(1, 49) = 0.028, MSE = 14.823, p = 0.868, partialEtaSq = 6e-04"
+"3","congruency:  F(2, 98) = 8.813, MSE = 9.641, p = 0, partialEtaSq = 0.1524"
+"4","posture:congruency:  F(2, 98) = 1.533, MSE = 5.865, p = 0.221, partialEtaSq = 0.0303"

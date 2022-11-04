@@ -1,0 +1,5 @@
+"","x"
+"1","(Intercept):  F(1, 49) = 83.821, MSE = 23.652, p = 0, partialEtaSq = 0.6311"
+"2","postureFactor:  F(1, 49) = 0.759, MSE = 4.649, p = 0.388, partialEtaSq = 0.0153"
+"3","setSize:  F(1, 49) = 18.473, MSE = 7.011, p = 0, partialEtaSq = 0.2738"
+"4","postureFactor:setSize:  F(1, 49) = 4.61, MSE = 4.452, p = 0.037, partialEtaSq = 0.086"

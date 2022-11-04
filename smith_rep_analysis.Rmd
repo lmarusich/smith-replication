@@ -60,9 +60,8 @@ sessionInfo()
 ## errors. The primary results are reported using this atypical approach to be 
 ## to be consistent with the original paper by Smith et al.
 
-## In the Appendix, we present a *Conventional* Analysis which 
-## drops the time-outs. 
-
+## Below, we present a *Conventional* Analysis which drops the time-outs for
+## Percent Error (PE) results 
 
 # Experiment 1 - Stroop
 
@@ -298,6 +297,7 @@ errModelStroop <- ezANOVA(stroopCombined,
 
 errStroopMSE = errModelStroop$ANOVA$SSd/errModelStroop$ANOVA$DFd
 
+exp1_ANOVA_acc_uncon <-
 paste(errModelStroop$ANOVA$Effect,":  F(",
       errModelStroop$ANOVA$DFn,
       ", ",
@@ -311,6 +311,9 @@ paste(errModelStroop$ANOVA$Effect,":  F(",
       ", partialEtaSq = ",
       round(errModelStroop$ANOVA$SSn/(errModelStroop$ANOVA$SSn+errModelStroop$ANOVA$SSd),4),
       sep="")
+exp1_ANOVA_acc_uncon
+
+write.csv(exp1_ANOVA_acc_uncon, "results/exp1_ANOVA_PE_uncon.csv")
 
 #BF for errors
 bfValues1.error = anovaBF(meanPE~congruency*posture+sj,
@@ -616,7 +619,7 @@ write.csv(acc.stats.TS[ ,-7], file = "results/exp2_Descriptives_ACC.csv",
           row.names = F)
 
 
-write.csv(accModelTS$anova_table, "results/exp2_ANOVA_acc.csv")
+write.csv(accModelTS$anova_table, "results/exp2_ANOVA_PE_uncon.csv")
 accModelTS
 
 #Calculate confidence interval: PES for posture x switch/condition interaction
@@ -866,8 +869,8 @@ ftable(posture~setSize, timeOutVS)
 ftable(posture~sj, timeOutVS)
 ftable(blockType~setSize, timeOutVS)
 
-merged.VS.data.convention <- merged.VS.data %>% filter(rt < 1500)
-write.csv(merged.VS.data.convention, 
+merged.VS.data.conventional <- merged.VS.data %>% filter(rt < 1500)
+write.csv(merged.VS.data.conventional, 
           file = "results/exp3_merged_vs_data_conv.csv", 
           row.names = F)
 
@@ -1020,6 +1023,7 @@ errModelVS
 
 err.VS.MSE <- errModelVS$ANOVA$SSd/errModelVS$ANOVA$DFd
 
+exp3_ANOVA_PE_uncon <-
 paste(errModelVS$ANOVA$Effect,":  F(",
       errModelVS$ANOVA$DFn,
       ", ",
@@ -1032,6 +1036,8 @@ paste(errModelVS$ANOVA$Effect,":  F(",
       round(errModelVS$ANOVA$p,3),
       ", partialEtaSq = ",
       round(errModelVS$ANOVA$SSn/(errModelVS$ANOVA$SSn+errModelVS$ANOVA$SSd),4),sep="")
+
+write.csv(exp3_ANOVA_PE_uncon, "results/exp3_ANOVA_PE_uncon.csv")
 
 wideData = dcast(vsCombined, #the name of the dataframe you want to reshape
                  sj+cb #row variables 
@@ -1524,7 +1530,7 @@ prop.effects
 mean(prop.effects)
 ```
 
-# Appendix: Analysis with conventional dropping of timeout trials (only affects PE analysis)
+# Appendix: Analysis with **conventional** dropping of timeout trials (only affects PE analysis)
 
 ## Experiment 1: Stroop
 ```{r}
@@ -1548,6 +1554,7 @@ e1.conv.errmodel <- ezANOVA(e1.conv.PE,
 
 e1.conv.MSE = e1.conv.errmodel$ANOVA$SSd/e1.conv.errmodel$ANOVA$DFd
 
+exp1_ANOVA_PE_con <-
 paste(e1.conv.errmodel$ANOVA$Effect,":  F(",
       e1.conv.errmodel$ANOVA$DFn,
       ", ",
@@ -1561,6 +1568,9 @@ paste(e1.conv.errmodel$ANOVA$Effect,":  F(",
       ", partialEtaSq = ",
       round(e1.conv.errmodel$ANOVA$SSn/(e1.conv.errmodel$ANOVA$SSn+e1.conv.errmodel$ANOVA$SSd),4),
       sep="")
+exp1_ANOVA_PE_con
+write.csv(exp1_ANOVA_PE_con, "results/exp1_ANOVA_PE_con.csv")
+
 
 #BF for errors
 e1.conv.BF = anovaBF(meanPE~congruency*posture+sj,
@@ -1599,6 +1609,7 @@ e2.conv.errmodel <- ezANOVA(e2.conv.PE,
 
 e2.conv.MSE = e2.conv.errmodel$ANOVA$SSd/e2.conv.errmodel$ANOVA$DFd
 
+exp2_ANOVA_PE_con <-  
 paste(e2.conv.errmodel$ANOVA$Effect,":  F(",
       e2.conv.errmodel$ANOVA$DFn,
       ", ",
@@ -1612,6 +1623,9 @@ paste(e2.conv.errmodel$ANOVA$Effect,":  F(",
       ", partialEtaSq = ",
       round(e2.conv.errmodel$ANOVA$SSn/(e2.conv.errmodel$ANOVA$SSn+e2.conv.errmodel$ANOVA$SSd),4),
       sep="")
+exp2_ANOVA_PE_con
+
+write.csv(exp2_ANOVA_PE_con, "results/exp2_ANOVA_PE_con.csv")
 
 #BF for errors
 e2.conv.BF = anovaBF(meanPE~congruentTrialType*posture+participant,
@@ -1626,7 +1640,81 @@ e2.conv.BF[3]/e2.conv.BF[4]
 ```
 ## Experiment 3: Visual Search
 ```{r}
+e3.conv.PE = plyr::ddply(merged.VS.data.conventional, 
+                     .(sj, setSize, posture), 
+                     summarise, 
+                     meanPE = 100 - (mean(ac)*100))
 
+e3.conv.PE$posture = factor(e3.conv.PE$posture)
+e3.conv.PE$setSize = factor(e3.conv.PE$setSize)
+e3.conv.PE$sj = factor(e3.conv.PE$sj)
+
+
+e3.conv.errmodel <- ezANOVA(e3.conv.PE, 
+                   dv = .(meanPE),
+                   wid=.(sj),
+                   within=.(posture, setSize), 
+                   detailed=TRUE, 
+                   type=3,
+                   return_aov = TRUE)
+
+e3.conv.MSE = e3.conv.errmodel$ANOVA$SSd/e3.conv.errmodel$ANOVA$DFd
+
+exp3_ANOVA_PE_con <- 
+paste(e3.conv.errmodel$ANOVA$Effect,":  F(",
+      e3.conv.errmodel$ANOVA$DFn,
+      ", ",
+      e3.conv.errmodel$ANOVA$DFd,
+      ") = ",
+      round(e3.conv.errmodel$ANOVA$F,3),
+      ", MSE = ",
+      round(e3.conv.MSE,3),
+      ", p = ",
+      round(e3.conv.errmodel$ANOVA$p,3),
+      ", partialEtaSq = ",
+      round(e3.conv.errmodel$ANOVA$SSn/(e3.conv.errmodel$ANOVA$SSn+e3.conv.errmodel$ANOVA$SSd),4),
+      sep="")
+
+exp3_ANOVA_PE_con
+write.csv(exp3_ANOVA_PE_con, "results/exp3_ANOVA_PE_con.csv")
+
+graphPE3.con = describeBy(e3.conv.PE$meanPE, 
+                     list(e3.conv.PE$posture, e3.conv.PE$setSize), 
+                     mat=TRUE, 
+                     digits = 1)
+
+graphPE3.con = graphPE3.con[,c("group1","group2","mean", "sd", "se")]
+
+names(graphPE3.con) = c("posture","setSize","meanPE", "sd", "se")
+
+e3.PE.conv.plot <-
+ggplot(data = e3.conv.PE, aes(x = posture, 
+                              y = meanPE)) + 
+  geom_point() + 
+  facet_wrap(~setSize) + 
+  geom_errorbar(data = graphPE3.con, aes(ymin = meanPE   - se, ymax = meanPE   + se))
+
+e3.PE.conv.plot
+
+#Standing has a single cell mean, set size = 4, nearly 15 percent error 
+e3.PE.conv.plot2 <-
+ggplot(data = e3.conv.PE, aes(x = posture, 
+                              y = meanPE)) + 
+  geom_point()
+
+e3.PE.conv.plot2
+#hist(e3.conv.PE$meanPE)
+
+#BF for errors
+e3.conv.BF = anovaBF(meanPE~setSize*posture+sj,
+                          data = e3.conv.PE,
+                          whichRandom = "sj", 
+                          method="laplace")
+e3.conv.BF
+
+#...get the Bayes factor for the Null Interaction
+e3.conv.BF[3]/e3.conv.BF[4]
+1/(e3.conv.BF[3]/e3.conv.BF[4])
 ```
 
 ### Effect of different RT cutoffs on PE interaction
@@ -1712,5 +1800,5 @@ exp3_rt_cutoff.pvals + geom_hline(yintercept = 0.05, color = "red") +
                        geom_hline(yintercept = 0.01, color = "darkred") +
                        geom_hline(yintercept = 0.001, color = "magenta") 
 
-plot(criteria.results$p.vals, criteria.results$es)
+#plot(criteria.results$p.vals, criteria.results$es)
 ```
