@@ -1517,6 +1517,12 @@ forest.comp <- mod.forestplot(df = forest.data,
   geom_label(data = subset(forest.data, Experiment == "Replication"),
                            aes(label = round(pes, digits = 3)),
                           vjust = 2.50)  +
+   theme(axis.text=element_text(size=14),
+       panel.background = element_rect(fill = "white", colour = "white", size = 1),
+       axis.title = element_text(size=12, face="bold"),
+       strip.text = element_text(size = 12, face = "bold",colour = "black", angle = 0),
+       legend.text = element_text(size = 14),
+       legend.title = element_text(size= 14, face = "bold")) +
   coord_cartesian(clip="off") #Disable clipping to draw outside plot area 
   
 
@@ -1525,8 +1531,8 @@ forest.comp
 ggsave(forest.comp, 
        file = "results/plots/fig5_forest_plot.pdf", 
        units = "in",
-       width = 6, 
-       height = 6,
+       width = 7, 
+       height = 5,
        dpi = 600)
 
 #Compare proportions: replication divided by original effect sizes
