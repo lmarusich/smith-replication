@@ -1610,45 +1610,34 @@ e2.conv.PE <- task_switching_raw.conventional %>%
   ungroup() %>%
   mutate(across(participant:switchTrialType, factor))
 
-e2.conv.errmodel <- ezANOVA(e2.conv.PE, 
-                   dv = .(meanPE),
-                   wid=.(participant),
-                   within=.(posture,congruentTrialType, switchTrialType), 
-                   detailed=TRUE, 
-                   type=3,
-                   return_aov = TRUE)
+
+e2.accModel.conv <- aov_ez(data = e2.conv.PE, 
+                      dv = "meanPE", 
+                      id = "participant", 
+                      within = c("posture", "congruentTrialType", "switchTrialType"), 
+                      type = 3, 
+                      anova_table = list(es = "pes")
+)
+
+e2.accModel.conv
+
+write.csv(e2.accModel.conv$anova_table, "results/exp2_ANOVA_PE_con.csv")
 
 
-e2.conv.MSE = e2.conv.errmodel$ANOVA$SSd/e2.conv.errmodel$ANOVA$DFd
+#...CALCULATE THE BAYES FACTORS FOR THE ACC ANALYSIS
+tsBF.conv = data.frame(e2.conv.PE)
 
-exp2_ANOVA_PE_con <-  
-paste(e2.conv.errmodel$ANOVA$Effect,":  F(",
-      e2.conv.errmodel$ANOVA$DFn,
-      ", ",
-      e2.conv.errmodel$ANOVA$DFd,
-      ") = ",
-      round(e1.conv.errmodel$ANOVA$F,3),
-      ", MSE = ",
-      round(e2.conv.MSE,3),
-      ", p = ",
-      round(e2.conv.errmodel$ANOVA$p,3),
-      ", partialEtaSq = ",
-      round(e2.conv.errmodel$ANOVA$SSn/(e2.conv.errmodel$ANOVA$SSn+e2.conv.errmodel$ANOVA$SSd),4),
-      sep="")
-exp2_ANOVA_PE_con
+bfValues2 = anovaBF(meanPE~ posture*switchTrialType+participant,
+                   data = tsBF.conv,
+                   whichRandom = "participant", 
+                   method="laplace")
+bfValues2
 
-write.csv(exp2_ANOVA_PE_con, "results/exp2_ANOVA_PE_con.csv")
+#...get the Bayes factor for the Null Interaction (vs. model w/no interaction) 
+bfValues2[3]/bfValues2[4]
+1/(bfValues2[3]/bfValues2[4])
 
-#BF for errors
-e2.conv.BF = anovaBF(meanPE~congruentTrialType*posture+participant,
-                          data = e2.conv.PE,
-                          whichRandom = "participant", 
-                          method="laplace")
-e2.conv.BF
 
-#...get the Bayes factor for the Null Interaction
-e2.conv.BF[3]/e2.conv.BF[4]
-1/(e2.conv.BF[3]/e2.conv.BF[4])
 ```
 ## Experiment 3: Visual Search
 ```{r}

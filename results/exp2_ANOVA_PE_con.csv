@@ -1,9 +1,8 @@
-"","x"
-"1","(Intercept):  F(1, 50) = 54.682, MSE = 124.788, p = 0, partialEtaSq = 0.8018"
-"2","posture:  F(1, 50) = 0.028, MSE = 77.648, p = 0.425, partialEtaSq = 0.0128"
-"3","congruentTrialType:  F(1, 50) = 8.813, MSE = 76.694, p = 0, partialEtaSq = 0.6854"
-"4","switchTrialType:  F(1, 50) = 1.533, MSE = 21.856, p = 0, partialEtaSq = 0.6665"
-"5","posture:congruentTrialType:  F(1, 50) = 54.682, MSE = 38.811, p = 0.939, partialEtaSq = 1e-04"
-"6","posture:switchTrialType:  F(1, 50) = 0.028, MSE = 18.608, p = 0.243, partialEtaSq = 0.0272"
-"7","congruentTrialType:switchTrialType:  F(1, 50) = 8.813, MSE = 13.78, p = 0, partialEtaSq = 0.5605"
-"8","posture:congruentTrialType:switchTrialType:  F(1, 50) = 1.533, MSE = 13.555, p = 0.491, partialEtaSq = 0.0095"
+"","num Df","den Df","MSE","F","pes","Pr(>F)"
+"posture",1,50,77.6476523243174,0.648285546347124,0.0127997530292292,0.424538703850995
+"congruentTrialType",1,50,76.6936486350419,108.954619486296,0.685444813358754,3.72360646872285e-14
+"switchTrialType",1,50,21.8557562923572,99.9058094497311,0.666457222815192,1.63342198800611e-13
+"posture:congruentTrialType",1,50,38.8110011076837,0.00592618363486199,0.000118509626501057,0.938945321665317
+"posture:switchTrialType",1,50,18.6080694149172,1.39785527262746,0.0271967626900554,0.2426751326494
+"congruentTrialType:switchTrialType",1,50,13.7797757453053,63.7754218799701,0.560537775436697,1.74861123212234e-10
+"posture:congruentTrialType:switchTrialType",1,50,13.5554011969698,0.481230616448272,0.00953286222565805,0.491075802738732
