@@ -56,12 +56,12 @@ sessionInfo()
 
 ```
 
-## *Unconventional* Analysis: Time-Outs (>=1500 ms to respond) are treated as
-## errors. The primary results are reported using this atypical approach to be 
-## to be consistent with the original paper by Smith et al.
-
-## Below, we present a *Conventional* Analysis which drops the time-outs for
-## Percent Error (PE) results 
+## *Unconventional* Analysis: 
+> Time-Outs (>=1500 ms to respond) are treated as errors.
+> The primary results are reported using this atypical approach to be 
+> to be consistent with the original paper by Smith et al.
+> Near the end we also present a *Conventional* Analysis which drops the 
+> time-outs for Percent Error (PE) results.
 
 # Experiment 1 - Stroop
 
@@ -642,8 +642,14 @@ acc_plot <-
              errorbar = "SE", #Tempted to change to CI, should stay SE to be consistent with SMith
              plotStyle = "line",
              factorOrder = c("Condition","Posture","Congruent"),
-             adjustments = list(purpose = "difference"))+
-  theme_classic() +
+             adjustments = list(purpose = "difference")) +
+ theme_classic() + 
+ theme(axis.text=element_text(size=14),
+       panel.background = element_rect(fill = "white", colour = "white", size = 1),
+       axis.title = element_text(size=14, face="bold"),
+       strip.text = element_text(size = 14, face = "bold",colour = "black", angle = 0),
+       legend.text = element_text(size = 13),
+       legend.title = element_text(size= 14, face = "bold")) +
   ylim(0, 22) + #Trying to make ylim same as the Smith w/o cutting off error bars
   facet_wrap(vars(Congruent), labeller = labeller(Congruent = congruent.labs)) +
   scale_x_discrete(labels=c("1" = "No Switch", "2" = "Switch"))+
@@ -735,7 +741,13 @@ trimmed_RT_plot <-
              plotStyle = "line",
              factorOrder = c("Condition","Posture","Congruent"),
              adjustments = list(purpose = "difference"))+
-  theme_classic()+
+ theme_classic() + 
+ theme(axis.text=element_text(size=14),
+       panel.background = element_rect(fill = "white", colour = "white", size = 1),
+       axis.title = element_text(size=14, face="bold"),
+       strip.text = element_text(size = 14, face = "bold",colour = "black", angle = 0),
+       legend.text = element_text(size = 13),
+       legend.title = element_text(size= 14, face = "bold")) +
   facet_wrap(vars(Congruent), labeller = labeller(Congruent = congruent.labs)) +
   scale_x_discrete(labels=c("1" = "No Switch", "2" = "Switch"))+
   scale_color_manual(values=c("#E69F00", "#0072B2"), labels = c("Sitting", "Standing")) +
