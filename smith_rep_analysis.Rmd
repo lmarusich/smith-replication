@@ -1555,12 +1555,9 @@ mean(prop.effects)
 e1.conv.PE = plyr::ddply(mergedStroopData.conventional, 
                      .(sj, cb,congruency,posture), 
                      summarise, 
-                     meanPE = 100 - (mean(ac)*100))
-
-e1.conv.PE$posture = factor(e1.conv.PE$posture)
-e1.conv.PE$congruency = factor(e1.conv.PE$congruency)
-e1.conv.PE$sj = factor(e1.conv.PE$sj)
-
+                     meanPE = 100 - (mean(ac)*100)) %>%
+  ungroup() %>%
+  mutate(across(sj:posture, factor))
 
 e1.conv.errmodel <- ezANOVA(e1.conv.PE, 
                    dv = .(meanPE),
@@ -1602,19 +1599,16 @@ e1.conv.BF[3]/e1.conv.BF[4]
 1/(e1.conv.BF[3]/e1.conv.BF[4])
 ```
 
-## Experiment 2: Stroop
+## Experiment 2: Task-Switching
 ```{r}
 e2.conv.PE <- task_switching_raw.conventional %>%
   group_by(participant, 
            posture,
            congruentTrialType, 
            switchTrialType) %>%
-  summarize(meanPE = (1 - correct_bin) * 100)
-
-e2.conv.PE$posture = factor(e2.conv.PE$posture)
-e2.conv.PE$congruentTrialType = factor(e2.conv.PE$congruentTrialType)
-e2.conv.PE$participant = factor(e2.conv.PE$participant)
-e2.conv.PE$switchTrialType = factor(e2.conv.PE$switchTrialType)
+  summarize(meanPE = mean((1 - correct_bin) * 100)) %>%
+  ungroup() %>%
+  mutate(across(participant:switchTrialType, factor))
 
 e2.conv.errmodel <- ezANOVA(e2.conv.PE, 
                    dv = .(meanPE),
@@ -1661,12 +1655,9 @@ e2.conv.BF[3]/e2.conv.BF[4]
 e3.conv.PE = plyr::ddply(merged.VS.data.conventional, 
                      .(sj, setSize, posture), 
                      summarise, 
-                     meanPE = 100 - (mean(ac)*100))
-
-e3.conv.PE$posture = factor(e3.conv.PE$posture)
-e3.conv.PE$setSize = factor(e3.conv.PE$setSize)
-e3.conv.PE$sj = factor(e3.conv.PE$sj)
-
+                     meanPE = 100 - (mean(ac)*100)) %>%
+  ungroup() %>%
+  mutate(across(sj:posture, factor))
 
 e3.conv.errmodel <- ezANOVA(e3.conv.PE, 
                    dv = .(meanPE),
