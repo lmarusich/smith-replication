@@ -2,7 +2,9 @@
 title: "Smith Replication: Primary Data Analysis"
 author: "Laura Marusich, Michael Reynolds, Jon Bakdash, and Emilie Caron"
 date: "`r Sys.Date()`"
-output: pdf_document
+output: 
+  pdf_document:
+    dev: png
 editor_options: 
   chunk_output_type: console
 ---
@@ -653,9 +655,19 @@ acc_plot <-
   ylim(0, 22) + #Trying to make ylim same as the Smith w/o cutting off error bars
   facet_wrap(vars(Congruent), labeller = labeller(Congruent = congruent.labs)) +
   scale_x_discrete(labels=c("1" = "No Switch", "2" = "Switch"))+
-  scale_color_manual(values=c("#E69F00", "#0072B2"), 
+  #for color:
+  # scale_color_manual(values=c("#E69F00", "#0072B2"), 
+  #for bw: 
+  scale_color_manual(name = "Posture",
+                     values=c("gray55", "black"),
+                     labels = c("Sitting", "Standing")) +
+  scale_shape_manual(name = "Posture",
+                     values = c(15,16),
                      labels = c("Sitting", "Standing")) +
   labs(y = "Percent Error")
+
+acc_plot$mapping[c(6)][[1]] <- as.name("Posture")
+names(acc_plot$mapping)[6] <- "shape"
 
 #Note this is Figure 3, not figure 2 (drawn below)
 ggsave(acc_plot, 
@@ -750,9 +762,20 @@ trimmed_RT_plot <-
        legend.title = element_text(size= 14, face = "bold")) +
   facet_wrap(vars(Congruent), labeller = labeller(Congruent = congruent.labs)) +
   scale_x_discrete(labels=c("1" = "No Switch", "2" = "Switch"))+
-  scale_color_manual(values=c("#E69F00", "#0072B2"), labels = c("Sitting", "Standing")) +
+  # scale_color_manual(values=c("#E69F00", "#0072B2"), labels = c("Sitting", "Standing")) +
+    #for bw: 
+  scale_color_manual(name = "Posture",
+                     values=c("gray55", "black"),
+                     labels = c("Sitting", "Standing")) +
+  scale_shape_manual(name = "Posture",
+                     values = c(15,16),
+                     labels = c("Sitting", "Standing")) +
   ylim(500, 700) +
   labs(y = "Response Time (ms)")
+
+trimmed_RT_plot$mapping[c(6)][[1]] <- as.name("Posture")
+names(trimmed_RT_plot$mapping)[6] <- "shape"
+
 
 ggsave(trimmed_RT_plot, 
        file = "results/plots/fig2_exp2_ts_trimmed_RT_plot.pdf", 
